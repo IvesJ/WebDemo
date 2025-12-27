@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>混合视频播放器演示</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #666;
+        }
+
+        /* 视频容器样式 */
+        .video-container {
+            width: 100%;
+            height: 200px;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            margin-bottom: 15px;
+        }
+
+        /* 控制面板 */
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            background: #007AFF;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #0051D5;
+        }
+
+        button:active {
+            background: #003F9A;
+        }
+
+        button.secondary {
+            background: #5AC8FA;
+        }
+
+        button.danger {
+            background: #FF3B30;
+        }
+
+        /* 进度条 */
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #ddd;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #007AFF;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        /* 状态信息 */
+        .status {
+            font-size: 12px;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        /* 列表流演示 */
+        .video-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .video-item {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+        }
+
+        .video-item .video-container {
+            height: 180px;
+            margin-bottom: 10px;
+        }
+
+        .video-item .title {
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .video-item .meta {
+            font-size: 12px;
+            color: #999;
+        }
+
+        /* 日志 */
+        .log {
+            max-height: 150px;
+            overflow-y: auto;
+            background: #f8f8f8;
+            padding: 10px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 11px;
+            line-height: 1.6;
+        }
+
+        .log-item {
+            margin-bottom: 4px;
+        }
+
+        .log-item.info { color: #007AFF; }
+        .log-item.success { color: #34C759; }
+        .log-item.error { color: #FF3B30; }
+    </style>
+</head>
+<body>
+    <h1>混合视频播放器演示</h1>
+
+    <!-- 单个播放器演示 -->
+    <div class="section">
+        <h2>详情页播放器（同层渲染模式）</h2>
+        <div id="video-detail" class="video-container"></div>
+
+        <div class="progress-bar">
+            <div id="progress-detail" class="progress-fill"></div>
+        </div>
+
+        <div class="controls">
+            <button onclick="playDetail()">播放</button>
+            <button onclick="pauseDetail()">暂停</button>
+            <button onclick="seekDetail()">跳转到30s</button>
+            <button class="secondary" onclick="toggleMuteDetail()">静音/取消</button>
+            <button class="danger" onclick="destroyDetail()">销毁</button>
+        </div>
+
+        <div id="status-detail" class="status">状态: 未初始化</div>
+    </div>
+
+    <!-- 列表流演示 -->
+    <div class="section">
+        <h2>列表流（Layer渲染模式 - Canvas开发中）</h2>
+        <div class="video-list">
+            <div class="video-item">
+                <div class="title">视频 1 - 风景</div>
+                <div id="video-list-1" class="video-container"></div>
+                <div class="meta">时长: 01:20 | 观看: 1.2K</div>
+            </div>
+
+            <div class="video-item">
+                <div class="title">视频 2 - 城市</div>
+                <div id="video-list-2" class="video-container"></div>
+                <div class="meta">时长: 02:15 | 观看: 3.4K</div>
+            </div>
+
+            <div class="video-item">
+                <div class="title">视频 3 - 人物</div>
+                <div id="video-list-3" class="video-container"></div>
+                <div class="meta">时长: 03:40 | 观看: 5.6K</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button onclick="playAllList()">全部播放</button>
+            <button onclick="pauseAllList()">全部暂停</button>
+            <button class="danger" onclick="destroyAllList()">全部销毁</button>
+        </div>
+    </div>
+
+    <!-- 日志 -->
+    <div class="section">
+        <h2>事件日志</h2>
+        <div id="log" class="log"></div>
+    </div>
+
+    <script src="js/HybridVideoPlayer.js"></script>
+    <script>
+        // 示例视频URL（使用可靠的测试视频源）
+        // 这些是公开的测试视频，可以直接播放
+        // const TEST_VIDEO_URL = 'http://vfx.mtime.cn/Video/2019/03/19/mp4/190319222227698228.mp4';
+        // const TEST_VIDEO_URL_2 = 'http://vfx.mtime.cn/Video/2019/03/21/mp4/190321153853126488.mp4';
+        // const TEST_VIDEO_URL_3 = 'http://vfx.mtime.cn/Video/2019/03/19/mp4/190319212559089721.mp4';
+
+        // 备用视频源（如果上面的不可用，可以尝试这些）
+        const TEST_VIDEO_URL = 'https://www.w3schools.com/html/mov_bbb.mp4';
+        const TEST_VIDEO_URL_2 = 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4';
+        const TEST_VIDEO_URL_3 = 'https://media.w3.org/2010/05/sintel/trailer.mp4';
+
+        // 播放器实例
+        let detailPlayer = null;
+        let listPlayers = [];
+
+        // 日志函数
+        function log(message, type = 'info') {
+            const logEl = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            const logItem = document.createElement('div');
+            logItem.className = `log-item ${type}`;
+            logItem.textContent = `[${time}] ${message}`;
+            logEl.appendChild(logItem);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        // 初始化详情页播放器
+        function initDetailPlayer() {
+            if (detailPlayer) {
+                return detailPlayer;
+            }
+
+            log('初始化详情页播放器（同层渲染模式）');
+
+            detailPlayer = new HybridVideoPlayer({
+                containerId: 'video-detail',
+                renderMode: 'layer',  // 同层渲染
+                audioFocusType: 'gain',  // 长时间焦点
+                enableDolby: true,
+                autoPlay: false
+            });
+
+            // 监听事件
+            detailPlayer.on('prepared', () => {
+                log('详情页播放器准备完成', 'success');
+                updateStatus('detail', '准备完成');
+            });
+
+            detailPlayer.on('playing', () => {
+                log('详情页播放器开始播放', 'success');
+                updateStatus('detail', '播放中');
+            });
+
+            detailPlayer.on('paused', () => {
+                log('详情页播放器暂停');
+                updateStatus('detail', '已暂停');
+            });
+
+            detailPlayer.on('ended', () => {
+                log('详情页播放器播放完成', 'success');
+                updateStatus('detail', '播放完成');
+            });
+
+            detailPlayer.on('error', (error) => {
+                log(`详情页播放器错误: ${error.message}`, 'error');
+                updateStatus('detail', `错误: ${error.message}`);
+            });
+
+            detailPlayer.on('progress', (current, duration) => {
+                const percent = (current / duration) * 100;
+                document.getElementById('progress-detail').style.width = percent + '%';
+                updateStatus('detail', `播放中 ${formatTime(current)} / ${formatTime(duration)}`);
+            });
+
+            return detailPlayer;
+        }
+
+        // 初始化列表播放器
+        function initListPlayers() {
+            if (listPlayers.length > 0) {
+                return;
+            }
+
+            log('初始化列表播放器（Layer渲染模式 - Canvas模式开发中）');
+
+            const urls = [TEST_VIDEO_URL, TEST_VIDEO_URL_2, TEST_VIDEO_URL_3];
+
+            urls.forEach((url, index) => {
+                const player = new HybridVideoPlayer({
+                    containerId: `video-list-${index + 1}`,
+                    renderMode: 'layer',  // 暂时使用Layer渲染（Canvas模式正在开发中）
+                    audioFocusType: 'transient',  // 短暂焦点
+                    enableDolby: false,  // 列表流不启用杜比
+                    autoPlay: false
+                });
+
+                player.on('playing', () => {
+                    log(`列表视频${index + 1}开始播放`, 'success');
+                });
+
+                player.on('error', (error) => {
+                    log(`列表视频${index + 1}错误: ${error.message}`, 'error');
+                });
+
+                listPlayers.push(player);
+            });
+        }
+
+        // 详情页播放器控制
+        function playDetail() {
+            const player = initDetailPlayer();
+            player.play(TEST_VIDEO_URL);
+            log('开始播放详情页视频');
+        }
+
+        function pauseDetail() {
+            if (detailPlayer) {
+                detailPlayer.pause();
+                log('暂停详情页视频');
+            }
+        }
+
+        function seekDetail() {
+            if (detailPlayer) {
+                detailPlayer.seek(30);
+                log('跳转到30秒');
+            }
+        }
+
+        let isMuted = false;
+        function toggleMuteDetail() {
+            if (detailPlayer) {
+                isMuted = !isMuted;
+                detailPlayer.setMuted(isMuted);
+                log(isMuted ? '静音' : '取消静音');
+            }
+        }
+
+        function destroyDetail() {
+            if (detailPlayer) {
+                detailPlayer.destroy();
+                detailPlayer = null;
+                log('销毁详情页播放器', 'error');
+                updateStatus('detail', '已销毁');
+            }
+        }
+
+        // 列表播放器控制
+        function playAllList() {
+            initListPlayers();
+            const urls = [TEST_VIDEO_URL, TEST_VIDEO_URL_2, TEST_VIDEO_URL_3];
+            listPlayers.forEach((player, index) => {
+                player.play(urls[index]);
+            });
+            log('播放所有列表视频');
+        }
+
+        function pauseAllList() {
+            listPlayers.forEach(player => player.pause());
+            log('暂停所有列表视频');
+        }
+
+        function destroyAllList() {
+            listPlayers.forEach((player, index) => {
+                player.destroy();
+                log(`销毁列表视频${index + 1}`, 'error');
+            });
+            listPlayers = [];
+        }
+
+        // 工具函数
+        function updateStatus(id, status) {
+            const statusEl = document.getElementById(`status-${id}`);
+            if (statusEl) {
+                statusEl.textContent = `状态: ${status}`;
+            }
+        }
+
+        function formatTime(seconds) {
+            const min = Math.floor(seconds / 60);
+            const sec = Math.floor(seconds % 60);
+            return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+        }
+
+        // 页面加载完成后的初始化
+        window.addEventListener('load', () => {
+            log('页面加载完成', 'success');
+            log('可以开始测试播放器功能');
+        });
+
+        // 监听页面卸载
+        window.addEventListener('beforeunload', () => {
+            if (detailPlayer) {
+                detailPlayer.destroy();
+            }
+            listPlayers.forEach(player => player.destroy());
+        });
+    </script>
+</body>
+</html>

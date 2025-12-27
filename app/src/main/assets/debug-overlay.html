@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>位置调试工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        h1 {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .debug-info {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #0f0;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            z-index: 9999;
+            max-width: 300px;
+            line-height: 1.6;
+        }
+
+        .debug-info h3 {
+            font-size: 12px;
+            margin-bottom: 5px;
+            color: #ff0;
+        }
+
+        .video-container {
+            width: 100%;
+            height: 200px;
+            background: #000;
+            border: 2px solid #f00;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .video-label {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            background: rgba(255, 0, 0, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 1;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #007AFF;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        button:active {
+            background: #0051D5;
+        }
+
+        .spacer {
+            height: 800px;
+            background: linear-gradient(to bottom, #fff 0%, #eee 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>视频位置调试工具</h1>
+
+    <div id="debug-info" class="debug-info">
+        <h3>位置信息</h3>
+        <div id="info-content">等待更新...</div>
+    </div>
+
+    <div class="controls">
+        <button onclick="startDebug()">开始调试</button>
+        <button onclick="stopDebug()">停止</button>
+        <button onclick="scrollToBottom()">滚动到底部</button>
+    </div>
+
+    <div class="video-container" id="video-1">
+        <div class="video-label">视频1 - 顶部</div>
+    </div>
+
+    <div class="spacer">
+        ↓ 向下滚动查看视频位置变化 ↓
+    </div>
+
+    <div class="video-container" id="video-2">
+        <div class="video-label">视频2 - 中间</div>
+    </div>
+
+    <div class="spacer">
+        ↓ 继续滚动 ↓
+    </div>
+
+    <div class="video-container" id="video-3">
+        <div class="video-label">视频3 - 底部</div>
+    </div>
+
+    <script src="js/HybridVideoPlayer.js"></script>
+    <script>
+        const VIDEO_URL = 'https://www.w3schools.com/html/mov_bbb.mp4';
+
+        let players = [];
+        let debugTimer = null;
+
+        function updateDebugInfo() {
+            const infoEl = document.getElementById('info-content');
+            let html = '';
+
+            players.forEach((player, index) => {
+                const container = document.getElementById(`video-${index + 1}`);
+                if (!container) return;
+
+                const rect = container.getBoundingClientRect();
+
+                html += `<div style="margin-bottom: 10px; border-top: 1px solid #555; padding-top: 5px;">`;
+                html += `<strong>视频${index + 1}:</strong><br>`;
+                html += `容器位置:<br>`;
+                html += `  left: ${Math.round(rect.left)}px<br>`;
+                html += `  top: ${Math.round(rect.top)}px<br>`;
+                html += `  width: ${Math.round(rect.width)}px<br>`;
+                html += `  height: ${Math.round(rect.height)}px<br>`;
+                html += `可见性: ${rect.top < window.innerHeight && rect.bottom > 0 ? '✓' : '✗'}<br>`;
+                html += `状态: ${player.getState()}<br>`;
+                html += `</div>`;
+            });
+
+            html += `<div style="border-top: 1px solid #555; padding-top: 5px; margin-top: 10px;">`;
+            html += `<strong>页面信息:</strong><br>`;
+            html += `窗口高度: ${window.innerHeight}px<br>`;
+            html += `滚动位置: ${Math.round(window.scrollY)}px<br>`;
+            html += `更新时间: ${new Date().toLocaleTimeString()}<br>`;
+            html += `</div>`;
+
+            infoEl.innerHTML = html;
+        }
+
+        function startDebug() {
+            // 创建播放器
+            if (players.length === 0) {
+                for (let i = 1; i <= 3; i++) {
+                    const player = new HybridVideoPlayer({
+                        containerId: `video-${i}`,
+                        renderMode: 'layer',
+                        audioFocusType: 'transient',
+                        autoPlay: false
+                    });
+
+                    player.on('prepared', () => {
+                        console.log(`视频${i}准备完成`);
+                    });
+
+                    player.on('error', (error) => {
+                        console.error(`视频${i}错误:`, error);
+                    });
+
+                    players.push(player);
+                }
+
+                // 播放第一个视频
+                setTimeout(() => {
+                    players[0].play(VIDEO_URL);
+                }, 500);
+            }
+
+            // 启动调试信息更新
+            if (!debugTimer) {
+                debugTimer = setInterval(updateDebugInfo, 100);
+                updateDebugInfo();
+            }
+        }
+
+        function stopDebug() {
+            if (debugTimer) {
+                clearInterval(debugTimer);
+                debugTimer = null;
+            }
+
+            players.forEach(player => player.destroy());
+            players = [];
+        }
+
+        function scrollToBottom() {
+            window.scrollTo({
+                top: document.body.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+
+        // 页面加载完成后自动开始
+        window.addEventListener('load', () => {
+            setTimeout(startDebug, 1000);
+        });
+
+        // 清理
+        window.addEventListener('beforeunload', stopDebug);
+    </script>
+</body>
+</html>
