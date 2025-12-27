@@ -130,8 +130,12 @@ class HybridVideoPlayer {
             onVideoSizeChanged: (width, height) => this._onVideoSizeChanged(width, height),
             onCompletion: () => this._onCompletion(),
             onError: (errorCode, errorMessage) => this._onError(errorCode, errorMessage),
-            onFrameRendered: (frameData, width, height, timestamp) => this._onFrameRendered(frameData, width, height, timestamp)
+            onFrameRendered: (frameData, width, height, timestamp) => this._onFrameRendered(frameData, width, height, timestamp),
+            onFrameReady: (seq, width, height, timestamp) => this._onFrameReady(seq, width, height, timestamp)
         };
+
+        // 共享内存相关
+        this.lastFrameSeq = 0;
     }
 
     /**
@@ -458,7 +462,80 @@ class HybridVideoPlayer {
     }
 
     /**
-     * 原生回调：帧渲染（Canvas模式）
+     * 原生回调：帧就绪通知（共享内存模式）
+     */
+    _onFrameReady(seq, width, height, timestamp) {
+        console.log(`[${this.playerId}] _onFrameReady: seq=${seq}, ${width}x${height}`);
+
+        // 检查是否是新帧
+        if (seq <= this.lastFrameSeq) {
+            console.log(`[${this.playerId}] Skipping old frame: ${seq} <= ${this.lastFrameSeq}`);
+            return;
+        }
+        this.lastFrameSeq = seq;
+
+        if (!this.ctx || !this.canvas) {
+            console.warn(`[${this.playerId}] Canvas or context is null`);
+            return;
+        }
+
+        if (!window.NativeVideoPlayer) {
+            console.error(`[${this.playerId}] NativeVideoPlayer not available`);
+            return;
+        }
+
+        try {
+            // 从共享缓冲区获取帧数据
+            const base64Data = window.NativeVideoPlayer.getFrameBuffer(this.playerId);
+            if (!base64Data) {
+                console.warn(`[${this.playerId}] No frame data available`);
+                return;
+            }
+
+            console.log(`[${this.playerId}] Got frame buffer, length=${base64Data.length}`);
+
+            // Base64解码
+            const binaryString = atob(base64Data);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+
+            // 快速解码
+            for (let i = 0; i < len; i += 8) {
+                bytes[i] = binaryString.charCodeAt(i);
+                if (i + 1 < len) bytes[i + 1] = binaryString.charCodeAt(i + 1);
+                if (i + 2 < len) bytes[i + 2] = binaryString.charCodeAt(i + 2);
+                if (i + 3 < len) bytes[i + 3] = binaryString.charCodeAt(i + 3);
+                if (i + 4 < len) bytes[i + 4] = binaryString.charCodeAt(i + 4);
+                if (i + 5 < len) bytes[i + 5] = binaryString.charCodeAt(i + 5);
+                if (i + 6 < len) bytes[i + 6] = binaryString.charCodeAt(i + 6);
+                if (i + 7 < len) bytes[i + 7] = binaryString.charCodeAt(i + 7);
+            }
+
+            // 创建ImageData并渲染
+            const imageData = new ImageData(
+                new Uint8ClampedArray(bytes),
+                width,
+                height
+            );
+
+            // 更新Canvas尺寸（如果需要）
+            if (this.canvas.width !== width || this.canvas.height !== height) {
+                this.canvas.width = width;
+                this.canvas.height = height;
+            }
+
+            // 渲染到Canvas
+            this.ctx.putImageData(imageData, 0, 0);
+            console.log(`[${this.playerId}] Frame rendered: seq=${seq}`);
+
+            this._emit('framerendered', timestamp);
+        } catch (e) {
+            console.error(`[${this.playerId}] Error rendering frame:`, e);
+        }
+    }
+
+    /**
+     * 原生回调：帧渲染（Canvas模式 - 兼容旧版）
      */
     _onFrameRendered(frameData, width, height, timestamp) {
         console.log(`[${this.playerId}] _onFrameRendered called: ${width}x${height}, dataLength=${frameData ? frameData.length : 0}`);

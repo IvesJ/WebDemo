@@ -10,7 +10,8 @@ import com.ace.webdemo.player.config.PlayerState
 import com.ace.webdemo.player.renderer.VideoRenderer
 import com.ace.webdemo.player.renderer.VideoRendererEventListener
 import org.json.JSONObject
-import java.util.Base64
+import java.nio.ByteBuffer
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * 视频播放器JSBridge
@@ -22,6 +23,12 @@ class VideoPlayerJSBridge(
 ) {
 
     private val mainHandler = Handler(Looper.getMainLooper())
+
+    // 共享内存缓冲区池 - 每个播放器一个buffer
+    private val frameBuffers = ConcurrentHashMap<String, ByteBuffer>()
+
+    // 帧序号，用于JS端判断是否有新帧
+    private val frameSequences = ConcurrentHashMap<String, Long>()
 
     /**
      * 创建播放器
@@ -274,7 +281,37 @@ class VideoPlayerJSBridge(
     }
 
     /**
-     * 发送帧数据到JS（Canvas模式）
+     * 获取共享内存缓冲区（供JS调用）
+     * @param playerId 播放器ID
+     * @return Base64编码的帧数据（用于初始化）
+     */
+    @JavascriptInterface
+    fun getFrameBuffer(playerId: String): String {
+        val buffer = frameBuffers[playerId]
+        return if (buffer != null) {
+            // 返回buffer的当前内容（Base64编码）
+            buffer.rewind()
+            val bytes = ByteArray(buffer.remaining())
+            buffer.get(bytes)
+            buffer.rewind()
+            android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+        } else {
+            ""
+        }
+    }
+
+    /**
+     * 获取帧序号（供JS轮询使用）
+     * @param playerId 播放器ID
+     * @return 当前帧序号
+     */
+    @JavascriptInterface
+    fun getFrameSequence(playerId: String): Long {
+        return frameSequences[playerId] ?: 0L
+    }
+
+    /**
+     * 发送帧数据到JS（Canvas模式 - 使用共享内存优化）
      */
     private fun sendFrameToJS(
         playerId: String,
@@ -287,55 +324,38 @@ class VideoPlayerJSBridge(
             try {
                 android.util.Log.d("VideoPlayerJSBridge", "Sending frame to JS: $width x $height, dataSize=${frameData.size}")
 
-                // 使用Base64编码传输二进制数据
-                // 注意：这里可以优化为使用SharedMemory，但需要更复杂的实现
-                val base64Data = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                    Base64.getEncoder().encodeToString(frameData)
-                } else {
-                    android.util.Base64.encodeToString(frameData, android.util.Base64.NO_WRAP)
+                // 方案：使用共享ByteBuffer + 轮询机制
+                // 1. 写入数据到ByteBuffer
+                var buffer = frameBuffers[playerId]
+                if (buffer == null || buffer.capacity() < frameData.size) {
+                    // 创建或扩容buffer
+                    buffer = ByteBuffer.allocateDirect(frameData.size)
+                    frameBuffers[playerId] = buffer
+                    android.util.Log.d("VideoPlayerJSBridge", "Created new buffer: ${frameData.size} bytes")
                 }
 
-                android.util.Log.d("VideoPlayerJSBridge", "Base64 encoded, length=${base64Data.length}")
+                buffer.rewind()
+                buffer.put(frameData)
+                buffer.rewind()
 
-                // 优化：减少字符串长度限制，分块传输
-                // 320x180x4 RGBA = 230,400 bytes -> Base64编码后约 307,200 bytes
-                val maxSize = 350000 // 增加到350KB以容纳320px分辨率的帧
-                if (base64Data.length > maxSize) {
-                    // 数据太大，跳过这一帧
-                    android.util.Log.w("VideoPlayerJSBridge", "Frame too large, skipping: ${base64Data.length}")
-                    return@post
-                }
+                // 2. 更新帧序号
+                val seq = (frameSequences[playerId] ?: 0L) + 1
+                frameSequences[playerId] = seq
 
+                android.util.Log.d("VideoPlayerJSBridge", "Frame written to buffer, seq=$seq")
+
+                // 3. 通知JS有新帧（轻量级通知）
                 val script = """
                     (function() {
                         const callbacks = window.__hybridVideoPlayerCallbacks__;
-                        if (!callbacks || !callbacks['$playerId'] || !callbacks['$playerId'].onFrameRendered) {
-                            return;
-                        }
-
-                        try {
-                            // 使用Uint8Array.from优化Base64解码
-                            const binaryString = atob('$base64Data');
-                            const len = binaryString.length;
-                            const bytes = new Uint8Array(len);
-
-                            // 批量处理，减少函数调用
-                            for (let i = 0; i < len; i += 4) {
-                                bytes[i] = binaryString.charCodeAt(i);
-                                if (i + 1 < len) bytes[i + 1] = binaryString.charCodeAt(i + 1);
-                                if (i + 2 < len) bytes[i + 2] = binaryString.charCodeAt(i + 2);
-                                if (i + 3 < len) bytes[i + 3] = binaryString.charCodeAt(i + 3);
-                            }
-
-                            callbacks['$playerId'].onFrameRendered(bytes, $width, $height, $timestamp);
-                        } catch(e) {
-                            console.error('Frame decode error:', e);
+                        if (callbacks && callbacks['$playerId'] && callbacks['$playerId'].onFrameReady) {
+                            callbacks['$playerId'].onFrameReady($seq, $width, $height, $timestamp);
                         }
                     })();
                 """.trimIndent()
 
                 webView.evaluateJavascript(script, null)
-                android.util.Log.d("VideoPlayerJSBridge", "Frame script executed successfully")
+                android.util.Log.d("VideoPlayerJSBridge", "Frame notification sent")
             } catch (e: Exception) {
                 android.util.Log.e("VideoPlayerJSBridge", "Error sending frame to JS", e)
                 e.printStackTrace()
