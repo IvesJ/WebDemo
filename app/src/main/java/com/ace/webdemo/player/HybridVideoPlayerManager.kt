@@ -62,7 +62,10 @@ class HybridVideoPlayerManager private constructor(private val context: Context)
         // 创建渲染器
         val renderer = when (renderMode) {
             RenderMode.CANVAS -> {
-                CanvasVideoRenderer(context, config)
+                // Canvas模式需要容器来添加TextureView
+                CanvasVideoRenderer(context, config) {
+                    webView?.parent as? android.view.ViewGroup
+                }
             }
             RenderMode.LAYER -> {
                 webView?.let { wv ->
@@ -72,11 +75,15 @@ class HybridVideoPlayerManager private constructor(private val context: Context)
             RenderMode.AUTO -> {
                 // AUTO模式下根据配置自动选择
                 if (shouldUseCanvasMode(config)) {
-                    CanvasVideoRenderer(context, config)
+                    CanvasVideoRenderer(context, config) {
+                        webView?.parent as? android.view.ViewGroup
+                    }
                 } else {
                     webView?.let { wv ->
                         LayerVideoRenderer(context, wv, config)
-                    } ?: CanvasVideoRenderer(context, config)
+                    } ?: CanvasVideoRenderer(context, config) {
+                        webView?.parent as? android.view.ViewGroup
+                    }
                 }
             }
         }

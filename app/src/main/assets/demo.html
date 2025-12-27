@@ -184,31 +184,34 @@
 
     <!-- 列表流演示 -->
     <div class="section">
-        <h2>列表流（Layer渲染模式 - Canvas开发中）</h2>
+        <h2>列表流（Canvas模式 - 可对比Layer模式）</h2>
         <div class="video-list">
             <div class="video-item">
-                <div class="title">视频 1 - 风景</div>
+                <div class="title">视频 1 - 风景 (Canvas 10fps)</div>
                 <div id="video-list-1" class="video-container"></div>
                 <div class="meta">时长: 01:20 | 观看: 1.2K</div>
             </div>
 
             <div class="video-item">
-                <div class="title">视频 2 - 城市</div>
+                <div class="title">视频 2 - 城市 (Canvas 10fps)</div>
                 <div id="video-list-2" class="video-container"></div>
                 <div class="meta">时长: 02:15 | 观看: 3.4K</div>
             </div>
 
             <div class="video-item">
-                <div class="title">视频 3 - 人物</div>
+                <div class="title">视频 3 - 人物 (Canvas 10fps)</div>
                 <div id="video-list-3" class="video-container"></div>
                 <div class="meta">时长: 03:40 | 观看: 5.6K</div>
             </div>
         </div>
 
         <div class="controls">
-            <button onclick="playAllList()">全部播放</button>
+            <button onclick="playCurrentVideo()">播放当前可见视频</button>
             <button onclick="pauseAllList()">全部暂停</button>
             <button class="danger" onclick="destroyAllList()">全部销毁</button>
+        </div>
+        <div style="margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 6px; font-size: 12px;">
+            <strong>说明：</strong>Canvas模式60fps测试，分辨率320px。注意观察性能和流畅度。
         </div>
     </div>
 
@@ -303,29 +306,84 @@
                 return;
             }
 
-            log('初始化列表播放器（Layer渲染模式 - Canvas模式开发中）');
+            log('初始化列表播放器（Canvas模式）');
 
             const urls = [TEST_VIDEO_URL, TEST_VIDEO_URL_2, TEST_VIDEO_URL_3];
 
             urls.forEach((url, index) => {
                 const player = new HybridVideoPlayer({
                     containerId: `video-list-${index + 1}`,
-                    renderMode: 'layer',  // 暂时使用Layer渲染（Canvas模式正在开发中）
-                    audioFocusType: 'transient',  // 短暂焦点
-                    enableDolby: false,  // 列表流不启用杜比
+                    renderMode: 'canvas',  // Canvas模式 - 在H5中渲染
+                    audioFocusType: 'transient',
+                    enableDolby: false,
+                    maxFrameRate: 60,  // 60fps - 测试最大帧率
                     autoPlay: false
                 });
 
                 player.on('playing', () => {
-                    log(`列表视频${index + 1}开始播放`, 'success');
+                    log(`列表视频${index + 1}开始播放 (Canvas 60fps)`, 'success');
                 });
 
                 player.on('error', (error) => {
                     log(`列表视频${index + 1}错误: ${error.message}`, 'error');
                 });
 
+                let frameCount = 0;
+                let lastLogTime = Date.now();
+                player.on('framerendered', () => {
+                    frameCount++;
+                    const now = Date.now();
+                    if (now - lastLogTime > 3000) { // 每3秒统计一次
+                        const fps = frameCount / 3;
+                        log(`视频${index + 1} 实际FPS: ${fps.toFixed(1)}`, 'info');
+                        frameCount = 0;
+                        lastLogTime = now;
+                    }
+                });
+
+                // 存储URL
+                player._videoUrl = urls[index];
                 listPlayers.push(player);
             });
+        }
+
+        // 播放当前可见的视频（智能单播）
+        function playCurrentVideo() {
+            initListPlayers();
+
+            // 检测哪个视频在视口中最多
+            let maxVisiblePlayer = null;
+            let maxVisibleRatio = 0;
+
+            listPlayers.forEach((player, index) => {
+                const container = document.getElementById(`video-list-${index + 1}`);
+                if (!container) return;
+
+                const rect = container.getBoundingClientRect();
+                const windowHeight = window.innerHeight;
+
+                // 计算可见比例
+                const visibleHeight = Math.min(rect.bottom, windowHeight) - Math.max(rect.top, 0);
+                const visibleRatio = Math.max(0, visibleHeight) / rect.height;
+
+                if (visibleRatio > maxVisibleRatio) {
+                    maxVisibleRatio = visibleRatio;
+                    maxVisiblePlayer = player;
+                }
+            });
+
+            // 暂停其他视频
+            listPlayers.forEach(p => {
+                if (p !== maxVisiblePlayer) {
+                    p.pause();
+                }
+            });
+
+            // 播放最可见的视频
+            if (maxVisiblePlayer && maxVisibleRatio > 0.5) {
+                maxVisiblePlayer.play(maxVisiblePlayer._videoUrl);
+                log('播放最可见的视频');
+            }
         }
 
         // 详情页播放器控制
@@ -367,15 +425,16 @@
             }
         }
 
-        // 列表播放器控制
-        function playAllList() {
-            initListPlayers();
-            const urls = [TEST_VIDEO_URL, TEST_VIDEO_URL_2, TEST_VIDEO_URL_3];
-            listPlayers.forEach((player, index) => {
-                player.play(urls[index]);
-            });
-            log('播放所有列表视频');
-        }
+        // 监听滚动，自动播放可见视频
+        let scrollTimer = null;
+        window.addEventListener('scroll', () => {
+            if (listPlayers.length === 0) return;
+
+            clearTimeout(scrollTimer);
+            scrollTimer = setTimeout(() => {
+                playCurrentVideo();
+            }, 200);
+        }, { passive: true });
 
         function pauseAllList() {
             listPlayers.forEach(player => player.pause());

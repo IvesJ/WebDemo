@@ -1,8 +1,12 @@
 package com.ace.webdemo.player.renderer.canvas
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.SurfaceTexture
 import android.os.Handler
 import android.os.Looper
+import android.view.Surface
+import android.view.TextureView
 import com.ace.webdemo.player.audio.AudioFocusChangeListener
 import com.ace.webdemo.player.audio.AudioFocusManager
 import com.ace.webdemo.player.audio.DolbyAudioProcessor
@@ -15,7 +19,11 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
+import java.io.ByteArrayOutputStream
+import java.nio.ByteBuffer
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
+import android.util.Log
 
 /**
  * Canvas视频渲染器
@@ -29,7 +37,8 @@ import java.util.concurrent.atomic.AtomicLong
  */
 class CanvasVideoRenderer(
     private val context: Context,
-    private val config: PlayerConfig
+    private val config: PlayerConfig,
+    private val containerProvider: (() -> android.view.ViewGroup?)? = null
 ) : VideoRenderer {
 
     private var exoPlayer: ExoPlayer? = null
@@ -40,7 +49,11 @@ class CanvasVideoRenderer(
     private var currentState = PlayerState.IDLE
 
     private val mainHandler = Handler(Looper.getMainLooper())
-    private val frameProcessor = FrameProcessor(config.maxFrameRate)
+
+    // 使用TextureView进行离屏渲染
+    private var textureView: TextureView? = null
+    private var isCapturing = AtomicBoolean(false)
+    private val captureHandler = Handler(Looper.getMainLooper())
 
     private var currentPosition = AtomicLong(0)
     private var duration = AtomicLong(0)
@@ -48,9 +61,86 @@ class CanvasVideoRenderer(
     private var videoWidth = 0
     private var videoHeight = 0
 
+    // 帧率控制
+    private val frameInterval = 1000L / config.maxFrameRate
+    private var lastFrameTime = 0L
+
+    // 可见性控制（优化：不可见时不捕获帧）
+    // 默认为true，只有明确判断为不可见时才设为false
+    @Volatile
+    private var isVisible = true
+
     init {
         initializePlayer()
         initializeAudioComponents()
+        initializeTextureView()
+    }
+
+    /**
+     * 初始化TextureView用于离屏渲染
+     */
+    private fun initializeTextureView() {
+        mainHandler.post {
+            textureView = TextureView(context).apply {
+                surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                    override fun onSurfaceTextureAvailable(
+                        surface: SurfaceTexture,
+                        width: Int,
+                        height: Int
+                    ) {
+                        Log.d("CanvasVideoRenderer", "Surface available: ${width}x${height}")
+                        // Surface可用时，将ExoPlayer绑定到这个Surface
+                        exoPlayer?.setVideoSurface(Surface(surface))
+                        Log.d("CanvasVideoRenderer", "ExoPlayer surface set")
+                    }
+
+                    override fun onSurfaceTextureSizeChanged(
+                        surface: SurfaceTexture,
+                        width: Int,
+                        height: Int
+                    ) {
+                        Log.d("CanvasVideoRenderer", "Surface size changed: ${width}x${height}")
+                    }
+
+                    override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
+                        Log.d("CanvasVideoRenderer", "Surface destroyed")
+                        exoPlayer?.clearVideoSurface()
+                        return true
+                    }
+
+                    override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
+                        // 每当有新帧渲染时，捕获并发送到H5
+                        Log.v("CanvasVideoRenderer", "onSurfaceTextureUpdated called")
+                        captureAndSendFrame()
+                    }
+                }
+            }
+
+            // 将TextureView添加到容器中（必须attach到window才能工作）
+            try {
+                val container = containerProvider?.invoke()
+                if (container != null) {
+                    // 先添加到容器，让容器生成合适的LayoutParams
+                    container.addView(textureView, 1, 1)
+
+                    // 然后设置位置和透明度，将其隐藏
+                    textureView?.apply {
+                        // 移到屏幕外（不能用INVISIBLE，会导致Surface不创建）
+                        translationX = -10000f
+                        translationY = -10000f
+                        // 完全透明
+                        alpha = 0f
+                        // 保持VISIBLE状态，否则Surface不会被创建
+                    }
+
+                    Log.d("CanvasVideoRenderer", "TextureView added to container, waiting for Surface...")
+                } else {
+                    Log.w("CanvasVideoRenderer", "No container available, TextureView may not work")
+                }
+            } catch (e: Exception) {
+                Log.e("CanvasVideoRenderer", "Failed to add TextureView to container", e)
+            }
+        }
     }
 
     /**
@@ -80,6 +170,11 @@ class CanvasVideoRenderer(
 
                 // 设置循环播放
                 repeatMode = if (config.loop) Player.REPEAT_MODE_ALL else Player.REPEAT_MODE_OFF
+
+                // 如果TextureView已经ready，绑定Surface
+                textureView?.surfaceTexture?.let { texture ->
+                    setVideoSurface(Surface(texture))
+                }
             }
 
         // 启动进度更新
@@ -152,8 +247,111 @@ class CanvasVideoRenderer(
                 exoPlayer?.playWhenReady = true
                 currentState = PlayerState.PLAYING
                 eventListener?.onStateChanged(currentState)
+                isCapturing.set(true)
             }
         }
+    }
+
+    /**
+     * 捕获并发送当前帧到H5
+     */
+    private fun captureAndSendFrame() {
+        // 帧率控制
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastFrameTime < frameInterval) {
+            return
+        }
+
+        // 如果不在播放状态或未启用捕获或不可见，跳过
+        if (!isCapturing.get() || currentState != PlayerState.PLAYING || !isVisible) {
+            Log.d("CanvasVideoRenderer", "Frame capture skipped - isCapturing=${isCapturing.get()}, state=$currentState, isVisible=$isVisible")
+            return
+        }
+
+        lastFrameTime = currentTime
+
+        textureView?.let { view ->
+            try {
+                // 从TextureView获取Bitmap
+                val originalBitmap = view.bitmap
+                Log.d("CanvasVideoRenderer", "Captured bitmap: ${originalBitmap?.width}x${originalBitmap?.height}")
+
+                if (originalBitmap == null || originalBitmap.width <= 1 || originalBitmap.height <= 1) {
+                    Log.w("CanvasVideoRenderer", "Invalid bitmap: ${originalBitmap?.width}x${originalBitmap?.height}")
+                    return
+                }
+
+                // 性能优化：大幅降低分辨率，避免传输过大数据
+                // 对于列表流，使用更小的分辨率以提升流畅度
+                val maxDimension = 320 // 最大宽度或高度（从640降到320）
+                val scaledBitmap = if (originalBitmap.width > maxDimension || originalBitmap.height > maxDimension) {
+                    val scale = minOf(
+                        maxDimension.toFloat() / originalBitmap.width,
+                        maxDimension.toFloat() / originalBitmap.height
+                    )
+                    val newWidth = (originalBitmap.width * scale).toInt()
+                    val newHeight = (originalBitmap.height * scale).toInt()
+
+                    Log.d("CanvasVideoRenderer", "Scaling bitmap from ${originalBitmap.width}x${originalBitmap.height} to ${newWidth}x${newHeight}")
+
+                    // 使用FILTER_BITMAP=false加速缩放
+                    android.graphics.Bitmap.createScaledBitmap(originalBitmap, newWidth, newHeight, false).also {
+                        if (it !== originalBitmap) {
+                            originalBitmap.recycle()
+                        }
+                    }
+                } else {
+                    originalBitmap
+                }
+
+                // 转换为RGBA数据
+                val rgbData = bitmapToRGBA(scaledBitmap)
+                Log.d("CanvasVideoRenderer", "Converted to RGBA: ${rgbData.size} bytes")
+
+                // 发送到H5
+                eventListener?.onFrameRendered(
+                    rgbData,
+                    scaledBitmap.width,
+                    scaledBitmap.height,
+                    currentTime
+                )
+                Log.d("CanvasVideoRenderer", "Frame sent to H5: ${scaledBitmap.width}x${scaledBitmap.height}")
+
+                // 回收Bitmap
+                scaledBitmap.recycle()
+
+            } catch (e: Exception) {
+                Log.e("CanvasVideoRenderer", "Error capturing frame", e)
+            }
+        } ?: Log.w("CanvasVideoRenderer", "TextureView is null, cannot capture frame")
+    }
+
+    /**
+     * 将Bitmap转换为RGBA字节数组
+     * Canvas的ImageData使用RGBA格式
+     */
+    private fun bitmapToRGBA(bitmap: Bitmap): ByteArray {
+        val width = bitmap.width
+        val height = bitmap.height
+        val pixels = IntArray(width * height)
+
+        // 获取ARGB像素数据
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+
+        // 转换为RGBA格式
+        val rgbaData = ByteArray(width * height * 4)
+        for (i in pixels.indices) {
+            val pixel = pixels[i]
+            val baseIndex = i * 4
+
+            // ARGB -> RGBA
+            rgbaData[baseIndex] = ((pixel shr 16) and 0xFF).toByte()     // R
+            rgbaData[baseIndex + 1] = ((pixel shr 8) and 0xFF).toByte()  // G
+            rgbaData[baseIndex + 2] = (pixel and 0xFF).toByte()          // B
+            rgbaData[baseIndex + 3] = ((pixel shr 24) and 0xFF).toByte() // A
+        }
+
+        return rgbaData
     }
 
     override fun pause() {
@@ -161,6 +359,7 @@ class CanvasVideoRenderer(
             exoPlayer?.playWhenReady = false
             currentState = PlayerState.PAUSED
             eventListener?.onStateChanged(currentState)
+            isCapturing.set(false)
         }
     }
 
@@ -180,8 +379,10 @@ class CanvasVideoRenderer(
 
     override fun release() {
         mainHandler.post {
+            isCapturing.set(false)
             stopProgressUpdater()
 
+            exoPlayer?.clearVideoSurface()
             exoPlayer?.release()
             exoPlayer = null
 
@@ -191,7 +392,11 @@ class CanvasVideoRenderer(
             dolbyProcessor?.release()
             dolbyProcessor = null
 
-            frameProcessor.release()
+            // 移除TextureView
+            textureView?.let { view ->
+                (view.parent as? android.view.ViewGroup)?.removeView(view)
+            }
+            textureView = null
 
             currentState = PlayerState.RELEASED
         }
@@ -210,7 +415,9 @@ class CanvasVideoRenderer(
     }
 
     override fun updateLayout(x: Int, y: Int, width: Int, height: Int) {
-        // Canvas模式下布局由H5控制，这里不需要处理
+        // Canvas模式下布局由H5控制，这里不做处理
+        // 可见性判断暂时禁用，保持默认isVisible=true
+        // 后续可以通过JSBridge传递可见性信息
     }
 
     override fun setPlaybackSpeed(speed: Float) {
@@ -303,6 +510,20 @@ class CanvasVideoRenderer(
     private fun handleVideoSizeChanged(videoSize: VideoSize) {
         videoWidth = videoSize.width
         videoHeight = videoSize.height
+
+        Log.d("CanvasVideoRenderer", "Video size changed: ${videoWidth}x${videoHeight}")
+
+        // 更新TextureView尺寸以匹配视频尺寸
+        mainHandler.post {
+            textureView?.let { view ->
+                val params = view.layoutParams
+                params?.width = videoWidth
+                params?.height = videoHeight
+                view.layoutParams = params
+                Log.d("CanvasVideoRenderer", "TextureView size updated to ${videoWidth}x${videoHeight}")
+            }
+        }
+
         eventListener?.onVideoSizeChanged(videoWidth, videoHeight)
     }
 
@@ -342,41 +563,4 @@ class CanvasVideoRenderer(
     }
 
     private var progressRunnable: Runnable? = null
-}
-
-/**
- * 帧处理器
- * 负责提取视频帧并转换为RGB数据传输到H5
- *
- * 注意：这是简化实现，实际项目中需要：
- * 1. 使用ExoPlayer的VideoFrameProcessor或MediaCodec直接解码
- * 2. 使用SharedMemory优化数据传输
- * 3. 使用RenderScript/GPU加速YUV->RGB转换
- */
-private class FrameProcessor(private val maxFrameRate: Int) {
-
-    private val minFrameInterval = 1000 / maxFrameRate
-    private var lastFrameTime = 0L
-
-    fun processFrame(frameData: ByteArray, width: Int, height: Int, timestamp: Long) {
-        // 帧率控制
-        val currentTime = System.currentTimeMillis()
-        if (currentTime - lastFrameTime < minFrameInterval) {
-            return
-        }
-        lastFrameTime = currentTime
-
-        // TODO: 实际项目中，这里应该：
-        // 1. 从ExoPlayer获取YUV数据
-        // 2. 转换为RGB格式
-        // 3. 通过JSBridge发送到H5
-
-        // 示例代码（需要根据实际情况调整）:
-        // val rgbData = convertYUVtoRGB(frameData, width, height)
-        // eventListener?.onFrameRendered(rgbData, width, height, timestamp)
-    }
-
-    fun release() {
-        // 清理资源
-    }
 }

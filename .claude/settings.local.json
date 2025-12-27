@@ -4,7 +4,9 @@
       "Bash(./gradlew build:*)",
       "Bash(./gradlew clean:*)",
       "Bash(./gradlew assembleDebug:*)",
-      "Bash(./gradlew installDebug:*)"
+      "Bash(./gradlew installDebug:*)",
+      "Bash(.gradlew.bat assembleDebug)",
+      "Bash(gradlew.bat assembleDebug:*)"
     ]
   }
 }

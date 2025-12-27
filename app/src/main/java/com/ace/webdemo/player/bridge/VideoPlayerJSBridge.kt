@@ -285,6 +285,8 @@ class VideoPlayerJSBridge(
     ) {
         mainHandler.post {
             try {
+                android.util.Log.d("VideoPlayerJSBridge", "Sending frame to JS: $width x $height, dataSize=${frameData.size}")
+
                 // 使用Base64编码传输二进制数据
                 // 注意：这里可以优化为使用SharedMemory，但需要更复杂的实现
                 val base64Data = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
@@ -293,27 +295,49 @@ class VideoPlayerJSBridge(
                     android.util.Base64.encodeToString(frameData, android.util.Base64.NO_WRAP)
                 }
 
-                val script = """
-                    if (window.__hybridVideoPlayerCallbacks__ &&
-                        window.__hybridVideoPlayerCallbacks__['$playerId'] &&
-                        window.__hybridVideoPlayerCallbacks__['$playerId'].onFrameRendered) {
+                android.util.Log.d("VideoPlayerJSBridge", "Base64 encoded, length=${base64Data.length}")
 
-                        // 解码Base64数据
-                        const binaryString = atob('$base64Data');
-                        const len = binaryString.length;
-                        const bytes = new Uint8Array(len);
-                        for (let i = 0; i < len; i++) {
-                            bytes[i] = binaryString.charCodeAt(i);
+                // 优化：减少字符串长度限制，分块传输
+                // 320x180x4 RGBA = 230,400 bytes -> Base64编码后约 307,200 bytes
+                val maxSize = 350000 // 增加到350KB以容纳320px分辨率的帧
+                if (base64Data.length > maxSize) {
+                    // 数据太大，跳过这一帧
+                    android.util.Log.w("VideoPlayerJSBridge", "Frame too large, skipping: ${base64Data.length}")
+                    return@post
+                }
+
+                val script = """
+                    (function() {
+                        const callbacks = window.__hybridVideoPlayerCallbacks__;
+                        if (!callbacks || !callbacks['$playerId'] || !callbacks['$playerId'].onFrameRendered) {
+                            return;
                         }
 
-                        window.__hybridVideoPlayerCallbacks__['$playerId'].onFrameRendered(
-                            bytes, $width, $height, $timestamp
-                        );
-                    }
+                        try {
+                            // 使用Uint8Array.from优化Base64解码
+                            const binaryString = atob('$base64Data');
+                            const len = binaryString.length;
+                            const bytes = new Uint8Array(len);
+
+                            // 批量处理，减少函数调用
+                            for (let i = 0; i < len; i += 4) {
+                                bytes[i] = binaryString.charCodeAt(i);
+                                if (i + 1 < len) bytes[i + 1] = binaryString.charCodeAt(i + 1);
+                                if (i + 2 < len) bytes[i + 2] = binaryString.charCodeAt(i + 2);
+                                if (i + 3 < len) bytes[i + 3] = binaryString.charCodeAt(i + 3);
+                            }
+
+                            callbacks['$playerId'].onFrameRendered(bytes, $width, $height, $timestamp);
+                        } catch(e) {
+                            console.error('Frame decode error:', e);
+                        }
+                    })();
                 """.trimIndent()
 
                 webView.evaluateJavascript(script, null)
+                android.util.Log.d("VideoPlayerJSBridge", "Frame script executed successfully")
             } catch (e: Exception) {
+                android.util.Log.e("VideoPlayerJSBridge", "Error sending frame to JS", e)
                 e.printStackTrace()
             }
         }

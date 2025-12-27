@@ -461,28 +461,36 @@ class HybridVideoPlayer {
      * 原生回调：帧渲染（Canvas模式）
      */
     _onFrameRendered(frameData, width, height, timestamp) {
-        if (!this.ctx || !this.canvas) return;
+        console.log(`[${this.playerId}] _onFrameRendered called: ${width}x${height}, dataLength=${frameData ? frameData.length : 0}`);
+
+        if (!this.ctx || !this.canvas) {
+            console.warn(`[${this.playerId}] Canvas or context is null`);
+            return;
+        }
 
         try {
-            // frameData是Uint8Array格式的RGB数据
+            // frameData是Uint8Array格式的RGBA数据
             const imageData = new ImageData(
                 new Uint8ClampedArray(frameData),
                 width,
                 height
             );
+            console.log(`[${this.playerId}] ImageData created successfully`);
 
             // 更新Canvas尺寸（如果需要）
             if (this.canvas.width !== width || this.canvas.height !== height) {
                 this.canvas.width = width;
                 this.canvas.height = height;
+                console.log(`[${this.playerId}] Canvas resized to ${width}x${height}`);
             }
 
             // 渲染到Canvas
             this.ctx.putImageData(imageData, 0, 0);
+            console.log(`[${this.playerId}] Frame rendered to canvas`);
 
             this._emit('framerendered', timestamp);
         } catch (e) {
-            console.error('Error rendering frame:', e);
+            console.error(`[${this.playerId}] Error rendering frame:`, e);
         }
     }
 
