@@ -134,6 +134,14 @@ class HybridVideoPlayerManager private constructor(private val context: Context)
     }
 
     /**
+     * 获取所有播放器实例
+     * @return 播放器Map
+     */
+    fun getAllPlayers(): Map<String, VideoRenderer> {
+        return playerPool.toMap()
+    }
+
+    /**
      * 选择渲染模式
      */
     private fun selectRenderMode(config: PlayerConfig): RenderMode {

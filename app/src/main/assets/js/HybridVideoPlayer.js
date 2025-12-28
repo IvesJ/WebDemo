@@ -131,7 +131,7 @@ class HybridVideoPlayer {
             onCompletion: () => this._onCompletion(),
             onError: (errorCode, errorMessage) => this._onError(errorCode, errorMessage),
             onFrameRendered: (frameData, width, height, timestamp) => this._onFrameRendered(frameData, width, height, timestamp),
-            onFrameReady: (seq, width, height, timestamp) => this._onFrameReady(seq, width, height, timestamp)
+            onFrameReady: (seq, width, height, timestamp, isRGB888) => this._onFrameReady(seq, width, height, timestamp, isRGB888)
         };
 
         // 共享内存相关
@@ -464,23 +464,18 @@ class HybridVideoPlayer {
     /**
      * 原生回调：帧就绪通知（共享内存模式）
      */
-    _onFrameReady(seq, width, height, timestamp) {
-        console.log(`[${this.playerId}] _onFrameReady: seq=${seq}, ${width}x${height}`);
-
+    _onFrameReady(seq, width, height, timestamp, isRGB888) {
         // 检查是否是新帧
         if (seq <= this.lastFrameSeq) {
-            console.log(`[${this.playerId}] Skipping old frame: ${seq} <= ${this.lastFrameSeq}`);
             return;
         }
         this.lastFrameSeq = seq;
 
         if (!this.ctx || !this.canvas) {
-            console.warn(`[${this.playerId}] Canvas or context is null`);
             return;
         }
 
         if (!window.NativeVideoPlayer) {
-            console.error(`[${this.playerId}] NativeVideoPlayer not available`);
             return;
         }
 
@@ -488,18 +483,14 @@ class HybridVideoPlayer {
             // 从共享缓冲区获取帧数据
             const base64Data = window.NativeVideoPlayer.getFrameBuffer(this.playerId);
             if (!base64Data) {
-                console.warn(`[${this.playerId}] No frame data available`);
                 return;
             }
 
-            console.log(`[${this.playerId}] Got frame buffer, length=${base64Data.length}`);
-
-            // Base64解码
+            // Base64解码（快速批量处理）
             const binaryString = atob(base64Data);
             const len = binaryString.length;
             const bytes = new Uint8Array(len);
 
-            // 快速解码
             for (let i = 0; i < len; i += 8) {
                 bytes[i] = binaryString.charCodeAt(i);
                 if (i + 1 < len) bytes[i + 1] = binaryString.charCodeAt(i + 1);
@@ -511,12 +502,27 @@ class HybridVideoPlayer {
                 if (i + 7 < len) bytes[i + 7] = binaryString.charCodeAt(i + 7);
             }
 
+            // 根据格式转换数据
+            let rgbaData;
+            if (isRGB888) {
+                // RGB888 -> RGBA（添加Alpha通道）
+                const pixelCount = width * height;
+                rgbaData = new Uint8ClampedArray(pixelCount * 4);
+                for (let i = 0; i < pixelCount; i++) {
+                    const srcIdx = i * 3;
+                    const dstIdx = i * 4;
+                    rgbaData[dstIdx] = bytes[srcIdx];         // R
+                    rgbaData[dstIdx + 1] = bytes[srcIdx + 1]; // G
+                    rgbaData[dstIdx + 2] = bytes[srcIdx + 2]; // B
+                    rgbaData[dstIdx + 3] = 255;               // A (不透明)
+                }
+            } else {
+                // 已经是RGBA格式
+                rgbaData = new Uint8ClampedArray(bytes);
+            }
+
             // 创建ImageData并渲染
-            const imageData = new ImageData(
-                new Uint8ClampedArray(bytes),
-                width,
-                height
-            );
+            const imageData = new ImageData(rgbaData, width, height);
 
             // 更新Canvas尺寸（如果需要）
             if (this.canvas.width !== width || this.canvas.height !== height) {
@@ -526,7 +532,6 @@ class HybridVideoPlayer {
 
             // 渲染到Canvas
             this.ctx.putImageData(imageData, 0, 0);
-            console.log(`[${this.playerId}] Frame rendered: seq=${seq}`);
 
             this._emit('framerendered', timestamp);
         } catch (e) {
@@ -538,10 +543,7 @@ class HybridVideoPlayer {
      * 原生回调：帧渲染（Canvas模式 - 兼容旧版）
      */
     _onFrameRendered(frameData, width, height, timestamp) {
-        console.log(`[${this.playerId}] _onFrameRendered called: ${width}x${height}, dataLength=${frameData ? frameData.length : 0}`);
-
         if (!this.ctx || !this.canvas) {
-            console.warn(`[${this.playerId}] Canvas or context is null`);
             return;
         }
 
@@ -552,18 +554,15 @@ class HybridVideoPlayer {
                 width,
                 height
             );
-            console.log(`[${this.playerId}] ImageData created successfully`);
 
             // 更新Canvas尺寸（如果需要）
             if (this.canvas.width !== width || this.canvas.height !== height) {
                 this.canvas.width = width;
                 this.canvas.height = height;
-                console.log(`[${this.playerId}] Canvas resized to ${width}x${height}`);
             }
 
             // 渲染到Canvas
             this.ctx.putImageData(imageData, 0, 0);
-            console.log(`[${this.playerId}] Frame rendered to canvas`);
 
             this._emit('framerendered', timestamp);
         } catch (e) {

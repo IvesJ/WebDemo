@@ -6,7 +6,10 @@
       "Bash(./gradlew assembleDebug:*)",
       "Bash(./gradlew installDebug:*)",
       "Bash(.gradlew.bat assembleDebug)",
-      "Bash(gradlew.bat assembleDebug:*)"
+      "Bash(gradlew.bat assembleDebug:*)",
+      "Bash(./gradlew.bat assembleDebug)",
+      "Bash(./gradlew.bat installDebug:*)",
+      "Bash(./gradlew.bat assembleDebug:*)"
     ]
   }
 }

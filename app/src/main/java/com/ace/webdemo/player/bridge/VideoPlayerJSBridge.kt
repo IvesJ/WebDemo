@@ -30,6 +30,21 @@ class VideoPlayerJSBridge(
     // 帧序号，用于JS端判断是否有新帧
     private val frameSequences = ConcurrentHashMap<String, Long>()
 
+    // 帧跳过计数器（隔帧传输优化）
+    private val frameSkipCounters = ConcurrentHashMap<String, Int>()
+
+    // 隔帧传输开关（全局配置）
+    @Volatile
+    private var frameSkipEnabled = true
+
+    // 隔帧间隔（1=不跳帧，2=每2帧传1帧，3=每3帧传1帧）
+    @Volatile
+    private var frameSkipInterval = 2
+
+    // 使用RGB888格式（否则使用RGBA）
+    @Volatile
+    private var useRGB888 = true
+
     /**
      * 创建播放器
      * @param configJson 配置JSON字符串
@@ -311,6 +326,55 @@ class VideoPlayerJSBridge(
     }
 
     /**
+     * 设置隔帧传输开关
+     * @param enabled 是否启用隔帧传输
+     */
+    @JavascriptInterface
+    fun setFrameSkipEnabled(enabled: Boolean) {
+        frameSkipEnabled = enabled
+        android.util.Log.d("VideoPlayerJSBridge", "Frame skip enabled: $enabled")
+    }
+
+    /**
+     * 设置隔帧间隔
+     * @param interval 间隔（1=不跳帧，2=每2帧传1帧，3=每3帧传1帧）
+     */
+    @JavascriptInterface
+    fun setFrameSkipInterval(interval: Int) {
+        frameSkipInterval = interval.coerceIn(1, 10)
+        android.util.Log.d("VideoPlayerJSBridge", "Frame skip interval: $frameSkipInterval")
+    }
+
+    /**
+     * 获取当前隔帧配置
+     * @return JSON格式的配置信息
+     */
+    @JavascriptInterface
+    fun getFrameSkipConfig(): String {
+        return """{"enabled":$frameSkipEnabled,"interval":$frameSkipInterval,"useRGB888":$useRGB888}"""
+    }
+
+    /**
+     * 设置颜色格式
+     * @param useRGB888 true=RGB888, false=RGBA
+     */
+    @JavascriptInterface
+    fun setColorFormat(useRGB888: Boolean) {
+        this.useRGB888 = useRGB888
+
+        // 同时更新所有Canvas渲染器的颜色格式
+        mainHandler.post {
+            playerManager.getAllPlayers().forEach { (_, renderer) ->
+                if (renderer is com.ace.webdemo.player.renderer.canvas.CanvasVideoRenderer) {
+                    renderer.useRGB888 = useRGB888
+                }
+            }
+        }
+
+        android.util.Log.d("VideoPlayerJSBridge", "Color format: ${if (useRGB888) "RGB888" else "RGBA"}")
+    }
+
+    /**
      * 发送帧数据到JS（Canvas模式 - 使用共享内存优化）
      */
     private fun sendFrameToJS(
@@ -322,16 +386,21 @@ class VideoPlayerJSBridge(
     ) {
         mainHandler.post {
             try {
-                android.util.Log.d("VideoPlayerJSBridge", "Sending frame to JS: $width x $height, dataSize=${frameData.size}")
+                // 隔帧传输（可动态开关）
+                if (frameSkipEnabled && frameSkipInterval > 1) {
+                    val skipCounter = frameSkipCounters[playerId] ?: 0
+                    frameSkipCounters[playerId] = (skipCounter + 1) % frameSkipInterval
 
-                // 方案：使用共享ByteBuffer + 轮询机制
+                    if (skipCounter != 0) {
+                        return@post // 跳过此帧
+                    }
+                }
+
                 // 1. 写入数据到ByteBuffer
                 var buffer = frameBuffers[playerId]
                 if (buffer == null || buffer.capacity() < frameData.size) {
-                    // 创建或扩容buffer
                     buffer = ByteBuffer.allocateDirect(frameData.size)
                     frameBuffers[playerId] = buffer
-                    android.util.Log.d("VideoPlayerJSBridge", "Created new buffer: ${frameData.size} bytes")
                 }
 
                 buffer.rewind()
@@ -342,20 +411,23 @@ class VideoPlayerJSBridge(
                 val seq = (frameSequences[playerId] ?: 0L) + 1
                 frameSequences[playerId] = seq
 
-                android.util.Log.d("VideoPlayerJSBridge", "Frame written to buffer, seq=$seq")
+                // 3. 判断实际数据格式
+                // RGB888: width * height * 3
+                // RGBA: width * height * 4
+                val bytesPerPixel = frameData.size / (width * height)
+                val isRGB888 = (bytesPerPixel == 3)
 
-                // 3. 通知JS有新帧（轻量级通知）
+                // 4. 通知JS有新帧（轻量级通知，包含格式信息）
                 val script = """
                     (function() {
                         const callbacks = window.__hybridVideoPlayerCallbacks__;
                         if (callbacks && callbacks['$playerId'] && callbacks['$playerId'].onFrameReady) {
-                            callbacks['$playerId'].onFrameReady($seq, $width, $height, $timestamp);
+                            callbacks['$playerId'].onFrameReady($seq, $width, $height, $timestamp, $isRGB888);
                         }
                     })();
                 """.trimIndent()
 
                 webView.evaluateJavascript(script, null)
-                android.util.Log.d("VideoPlayerJSBridge", "Frame notification sent")
             } catch (e: Exception) {
                 android.util.Log.e("VideoPlayerJSBridge", "Error sending frame to JS", e)
                 e.printStackTrace()

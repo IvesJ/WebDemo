@@ -70,6 +70,13 @@ class CanvasVideoRenderer(
     @Volatile
     private var isVisible = true
 
+    // 颜色格式：true=RGB888, false=RGBA（动态可切换）
+    @Volatile
+    var useRGB888 = true
+
+    // 主动帧捕获定时器（解决华为设备onSurfaceTextureUpdated不触发的问题）
+    private var frameCaptureRunnable: Runnable? = null
+
     init {
         initializePlayer()
         initializeAudioComponents()
@@ -90,8 +97,13 @@ class CanvasVideoRenderer(
                     ) {
                         Log.d("CanvasVideoRenderer", "Surface available: ${width}x${height}")
                         // Surface可用时，将ExoPlayer绑定到这个Surface
-                        exoPlayer?.setVideoSurface(Surface(surface))
-                        Log.d("CanvasVideoRenderer", "ExoPlayer surface set")
+                        try {
+                            val videoSurface = Surface(surface)
+                            exoPlayer?.setVideoSurface(videoSurface)
+                            Log.d("CanvasVideoRenderer", "ExoPlayer surface set successfully")
+                        } catch (e: Exception) {
+                            Log.e("CanvasVideoRenderer", "Failed to set video surface", e)
+                        }
                     }
 
                     override fun onSurfaceTextureSizeChanged(
@@ -100,18 +112,30 @@ class CanvasVideoRenderer(
                         height: Int
                     ) {
                         Log.d("CanvasVideoRenderer", "Surface size changed: ${width}x${height}")
+                        // Surface尺寸变化时，重新绑定确保渲染正常
+                        try {
+                            val videoSurface = Surface(surface)
+                            exoPlayer?.setVideoSurface(videoSurface)
+                            Log.d("CanvasVideoRenderer", "ExoPlayer surface re-bound after size change")
+                        } catch (e: Exception) {
+                            Log.e("CanvasVideoRenderer", "Failed to re-bind surface", e)
+                        }
                     }
 
                     override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
                         Log.d("CanvasVideoRenderer", "Surface destroyed")
-                        exoPlayer?.clearVideoSurface()
+                        try {
+                            exoPlayer?.clearVideoSurface()
+                        } catch (e: Exception) {
+                            Log.e("CanvasVideoRenderer", "Error clearing surface", e)
+                        }
                         return true
                     }
 
                     override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
-                        // 每当有新帧渲染时，捕获并发送到H5
-                        Log.v("CanvasVideoRenderer", "onSurfaceTextureUpdated called")
-                        captureAndSendFrame()
+                        // 华为设备上这个回调可能不触发，所以我们使用主动轮询
+                        // 这里保留回调作为辅助，如果触发了就更新一下
+                        // 不依赖这个回调，主要靠startFrameCapture()的定时器
                     }
                 }
             }
@@ -120,8 +144,12 @@ class CanvasVideoRenderer(
             try {
                 val container = containerProvider?.invoke()
                 if (container != null) {
-                    // 先添加到容器，让容器生成合适的LayoutParams
-                    container.addView(textureView, 1, 1)
+                    // 使用较大的初始尺寸，避免后续调整导致Surface重建
+                    // 大部分视频的分辨率都不会超过1080p，使用1920x1080作为初始尺寸
+                    // 这样可以避免绝大多数情况下的尺寸调整
+                    val initialWidth = 1920
+                    val initialHeight = 1080
+                    container.addView(textureView, initialWidth, initialHeight)
 
                     // 然后设置位置和透明度，将其隐藏
                     textureView?.apply {
@@ -248,7 +276,42 @@ class CanvasVideoRenderer(
                 currentState = PlayerState.PLAYING
                 eventListener?.onStateChanged(currentState)
                 isCapturing.set(true)
+
+                // 启动主动帧捕获定时器（解决华为设备回调不触发问题）
+                startFrameCapture()
             }
+        }
+    }
+
+    /**
+     * 启动主动帧捕获（不依赖onSurfaceTextureUpdated回调）
+     * 这解决了华为设备上TextureView回调不触发的问题
+     */
+    private fun startFrameCapture() {
+        stopFrameCapture() // 先停止旧的
+
+        frameCaptureRunnable = object : Runnable {
+            override fun run() {
+                if (isCapturing.get() && currentState == PlayerState.PLAYING) {
+                    captureAndSendFrame()
+                    // 根据帧率间隔调度下一次捕获
+                    mainHandler.postDelayed(this, frameInterval)
+                }
+            }
+        }
+
+        mainHandler.post(frameCaptureRunnable!!)
+        Log.d("CanvasVideoRenderer", "Active frame capture started at ${config.maxFrameRate}fps")
+    }
+
+    /**
+     * 停止主动帧捕获
+     */
+    private fun stopFrameCapture() {
+        frameCaptureRunnable?.let {
+            mainHandler.removeCallbacks(it)
+            frameCaptureRunnable = null
+            Log.d("CanvasVideoRenderer", "Active frame capture stopped")
         }
     }
 
@@ -256,34 +319,43 @@ class CanvasVideoRenderer(
      * 捕获并发送当前帧到H5
      */
     private fun captureAndSendFrame() {
-        // 帧率控制
+        // 如果不在播放状态或未启用捕获或不可见，跳过
+        if (!isCapturing.get() || currentState != PlayerState.PLAYING || !isVisible) {
+            return
+        }
+
+        // 帧率控制（主动轮询时已经由定时器控制，这里做双保险）
         val currentTime = System.currentTimeMillis()
         if (currentTime - lastFrameTime < frameInterval) {
             return
         }
-
-        // 如果不在播放状态或未启用捕获或不可见，跳过
-        if (!isCapturing.get() || currentState != PlayerState.PLAYING || !isVisible) {
-            Log.d("CanvasVideoRenderer", "Frame capture skipped - isCapturing=${isCapturing.get()}, state=$currentState, isVisible=$isVisible")
-            return
-        }
-
         lastFrameTime = currentTime
 
         textureView?.let { view ->
             try {
-                // 从TextureView获取Bitmap
-                val originalBitmap = view.bitmap
-                Log.d("CanvasVideoRenderer", "Captured bitmap: ${originalBitmap?.width}x${originalBitmap?.height}")
-
-                if (originalBitmap == null || originalBitmap.width <= 1 || originalBitmap.height <= 1) {
-                    Log.w("CanvasVideoRenderer", "Invalid bitmap: ${originalBitmap?.width}x${originalBitmap?.height}")
+                // 检查TextureView是否可用
+                if (!view.isAvailable) {
+                    Log.w("CanvasVideoRenderer", "TextureView not available for capture")
                     return
                 }
 
-                // 性能优化：大幅降低分辨率，避免传输过大数据
-                // 对于列表流，使用更小的分辨率以提升流畅度
-                val maxDimension = 320 // 最大宽度或高度（从640降到320）
+                // 从TextureView获取Bitmap
+                val originalBitmap = view.bitmap
+                if (originalBitmap == null) {
+                    Log.w("CanvasVideoRenderer", "Failed to get bitmap from TextureView")
+                    return
+                }
+
+                if (originalBitmap.width <= 1 || originalBitmap.height <= 1) {
+                    Log.w("CanvasVideoRenderer", "Invalid bitmap size: ${originalBitmap.width}x${originalBitmap.height}")
+                    return
+                }
+
+                // 只在第一帧和尺寸变化时输出日志
+                // Log.d("CanvasVideoRenderer", "Capturing frame: ${originalBitmap.width}x${originalBitmap.height}")
+
+                // 性能优化：使用320px
+                val maxDimension = 320
                 val scaledBitmap = if (originalBitmap.width > maxDimension || originalBitmap.height > maxDimension) {
                     val scale = minOf(
                         maxDimension.toFloat() / originalBitmap.width,
@@ -291,8 +363,6 @@ class CanvasVideoRenderer(
                     )
                     val newWidth = (originalBitmap.width * scale).toInt()
                     val newHeight = (originalBitmap.height * scale).toInt()
-
-                    Log.d("CanvasVideoRenderer", "Scaling bitmap from ${originalBitmap.width}x${originalBitmap.height} to ${newWidth}x${newHeight}")
 
                     // 使用FILTER_BITMAP=false加速缩放
                     android.graphics.Bitmap.createScaledBitmap(originalBitmap, newWidth, newHeight, false).also {
@@ -304,26 +374,64 @@ class CanvasVideoRenderer(
                     originalBitmap
                 }
 
-                // 转换为RGBA数据
-                val rgbData = bitmapToRGBA(scaledBitmap)
-                Log.d("CanvasVideoRenderer", "Converted to RGBA: ${rgbData.size} bytes")
+                // 根据配置选择颜色格式
+                val frameData = if (useRGB888) {
+                    bitmapToRGB888(scaledBitmap)
+                } else {
+                    bitmapToRGBA(scaledBitmap)
+                }
 
                 // 发送到H5
                 eventListener?.onFrameRendered(
-                    rgbData,
+                    frameData,
                     scaledBitmap.width,
                     scaledBitmap.height,
                     currentTime
                 )
-                Log.d("CanvasVideoRenderer", "Frame sent to H5: ${scaledBitmap.width}x${scaledBitmap.height}")
 
                 // 回收Bitmap
                 scaledBitmap.recycle()
 
+            } catch (e: IllegalStateException) {
+                // TextureView可能在不合适的状态
+                Log.e("CanvasVideoRenderer", "IllegalStateException while capturing frame", e)
+            } catch (e: OutOfMemoryError) {
+                // 内存不足
+                Log.e("CanvasVideoRenderer", "OutOfMemoryError while capturing frame", e)
+                System.gc() // 触发GC尝试释放内存
             } catch (e: Exception) {
                 Log.e("CanvasVideoRenderer", "Error capturing frame", e)
             }
-        } ?: Log.w("CanvasVideoRenderer", "TextureView is null, cannot capture frame")
+        } ?: run {
+            Log.w("CanvasVideoRenderer", "TextureView is null, cannot capture frame")
+        }
+    }
+
+    /**
+     * 将Bitmap转换为RGB888字节数组（无Alpha通道）
+     * 相比RGBA减少25%数据量
+     */
+    private fun bitmapToRGB888(bitmap: Bitmap): ByteArray {
+        val width = bitmap.width
+        val height = bitmap.height
+        val pixels = IntArray(width * height)
+
+        // 获取ARGB像素数据
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+
+        // 转换为RGB888格式（只取RGB，忽略Alpha）
+        val rgbData = ByteArray(width * height * 3)
+        for (i in pixels.indices) {
+            val pixel = pixels[i]
+            val baseIndex = i * 3
+
+            // ARGB -> RGB
+            rgbData[baseIndex] = ((pixel shr 16) and 0xFF).toByte()     // R
+            rgbData[baseIndex + 1] = ((pixel shr 8) and 0xFF).toByte()  // G
+            rgbData[baseIndex + 2] = (pixel and 0xFF).toByte()          // B
+        }
+
+        return rgbData
     }
 
     /**
@@ -360,6 +468,7 @@ class CanvasVideoRenderer(
             currentState = PlayerState.PAUSED
             eventListener?.onStateChanged(currentState)
             isCapturing.set(false)
+            stopFrameCapture()
         }
     }
 
@@ -380,6 +489,7 @@ class CanvasVideoRenderer(
     override fun release() {
         mainHandler.post {
             isCapturing.set(false)
+            stopFrameCapture()
             stopProgressUpdater()
 
             exoPlayer?.clearVideoSurface()
@@ -508,21 +618,30 @@ class CanvasVideoRenderer(
      * 处理视频尺寸变化
      */
     private fun handleVideoSizeChanged(videoSize: VideoSize) {
-        videoWidth = videoSize.width
-        videoHeight = videoSize.height
+        val newWidth = videoSize.width
+        val newHeight = videoSize.height
 
-        Log.d("CanvasVideoRenderer", "Video size changed: ${videoWidth}x${videoHeight}")
+        Log.d("CanvasVideoRenderer", "Video size changed: ${newWidth}x${newHeight}")
 
-        // 更新TextureView尺寸以匹配视频尺寸
-        mainHandler.post {
-            textureView?.let { view ->
-                val params = view.layoutParams
-                params?.width = videoWidth
-                params?.height = videoHeight
-                view.layoutParams = params
-                Log.d("CanvasVideoRenderer", "TextureView size updated to ${videoWidth}x${videoHeight}")
-            }
+        // 只有当尺寸真正变化且有效时才更新
+        if (newWidth <= 0 || newHeight <= 0) {
+            Log.w("CanvasVideoRenderer", "Invalid video size: ${newWidth}x${newHeight}, skipping update")
+            return
         }
+
+        // 检查尺寸是否真的变化了，避免不必要的更新
+        if (newWidth == videoWidth && newHeight == videoHeight) {
+            Log.d("CanvasVideoRenderer", "Video size unchanged, skipping update")
+            return
+        }
+
+        videoWidth = newWidth
+        videoHeight = newHeight
+
+        // 关键修改：不要改变TextureView的尺寸！
+        // 改变TextureView尺寸会导致Surface重建，在华为设备上会导致帧回调停止
+        // TextureView保持初始尺寸，ExoPlayer会自动缩放视频内容
+        Log.d("CanvasVideoRenderer", "Video size updated to ${videoWidth}x${videoHeight}, TextureView size unchanged")
 
         eventListener?.onVideoSizeChanged(videoWidth, videoHeight)
     }

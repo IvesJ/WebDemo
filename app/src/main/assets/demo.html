@@ -56,31 +56,85 @@
             margin-bottom: 10px;
         }
 
+        .control-group {
+            background: #f9f9f9;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .control-group h3 {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
         button {
             padding: 10px 20px;
-            border: none;
-            border-radius: 6px;
-            background: #007AFF;
-            color: white;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            background: #f0f0f0;
+            color: #333;
             font-size: 14px;
+            font-weight: 500;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
         button:hover {
-            background: #0051D5;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
         }
 
         button:active {
-            background: #003F9A;
+            transform: translateY(0);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        button.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        button.primary:hover {
+            background: linear-gradient(135deg, #5568d3 0%, #63408b 100%);
         }
 
         button.secondary {
             background: #5AC8FA;
+            color: white;
+        }
+
+        button.secondary:hover {
+            background: #47b8e8;
         }
 
         button.danger {
-            background: #FF3B30;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        button.danger:hover {
+            background: linear-gradient(135deg, #de7fe9 0%, #e3445a 100%);
+        }
+
+        button.selected {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: #4a5fd7;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+        }
+
+        button.success {
+            background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+            color: #333;
+        }
+
+        button.warning {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            color: #333;
         }
 
         /* 进度条 */
@@ -138,16 +192,32 @@
             color: #999;
         }
 
-        /* 日志 */
+        /* 日志 - 悬浮固定 */
+        #log-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 1000;
+            padding: 10px;
+        }
+
         .log {
-            max-height: 150px;
+            max-height: 120px;
             overflow-y: auto;
             background: #f8f8f8;
-            padding: 10px;
+            padding: 8px;
             border-radius: 6px;
             font-family: monospace;
-            font-size: 11px;
-            line-height: 1.6;
+            font-size: 10px;
+            line-height: 1.4;
+        }
+
+        /* 为悬浮日志留出空间 */
+        body {
+            padding-top: 160px;
         }
 
         .log-item {
@@ -157,42 +227,75 @@
         .log-item.info { color: #007AFF; }
         .log-item.success { color: #34C759; }
         .log-item.error { color: #FF3B30; }
+
+        /* Tab样式 */
+        .tabs {
+            display: flex;
+            gap: 0;
+            border-bottom: 2px solid #ddd;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px;
+            background: #f5f5f5;
+            border: none;
+            border-bottom: 3px solid transparent;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            background: white;
+            border-bottom-color: #007AFF;
+            color: #007AFF;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
     </style>
 </head>
 <body>
-    <h1>混合视频播放器演示</h1>
-
-    <!-- 单个播放器演示 -->
-    <div class="section">
-        <h2>详情页播放器（同层渲染模式）</h2>
-        <div id="video-detail" class="video-container"></div>
-
-        <div class="progress-bar">
-            <div id="progress-detail" class="progress-fill"></div>
+    <!-- 悬浮日志 -->
+    <div id="log-container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+            <h2 style="margin: 0; font-size: 14px;">事件日志</h2>
+            <div>
+                <button class="secondary" style="padding: 5px 10px; font-size: 12px;" onclick="clearLog()">清空</button>
+            </div>
         </div>
-
-        <div class="controls">
-            <button onclick="playDetail()">播放</button>
-            <button onclick="pauseDetail()">暂停</button>
-            <button onclick="seekDetail()">跳转到30s</button>
-            <button class="secondary" onclick="toggleMuteDetail()">静音/取消</button>
-            <button class="danger" onclick="destroyDetail()">销毁</button>
-        </div>
-
-        <div id="status-detail" class="status">状态: 未初始化</div>
+        <div id="log" class="log"></div>
     </div>
 
-    <!-- 列表流演示 -->
-    <div class="section">
-        <h2>列表流（Canvas模式 - 可对比Layer模式）</h2>
+    <h1>混合视频播放器演示</h1>
+
+    <!-- Tab切换 -->
+    <div class="tabs">
+        <button class="tab active" onclick="switchTab('canvas')">Canvas模式测试</button>
+        <button class="tab" onclick="switchTab('layer')">Layer模式</button>
+    </div>
+
+    <!-- Canvas模式Tab -->
+    <div id="tab-canvas" class="tab-content active">
+        <!-- 列表流演示 -->
+        <div class="section">
+            <h2>列表流（Canvas模式 - 性能测试）</h2>
         <div class="video-list">
-            <div class="video-item">
+            <div class="video-item" style="display: none;">
                 <div class="title">视频 1 - 风景 (Canvas 10fps)</div>
                 <div id="video-list-1" class="video-container"></div>
                 <div class="meta">时长: 01:20 | 观看: 1.2K</div>
             </div>
 
-            <div class="video-item">
+            <div class="video-item" style="display: none;">
                 <div class="title">视频 2 - 城市 (Canvas 10fps)</div>
                 <div id="video-list-2" class="video-container"></div>
                 <div class="meta">时长: 02:15 | 观看: 3.4K</div>
@@ -205,20 +308,68 @@
             </div>
         </div>
 
-        <div class="controls">
-            <button onclick="playCurrentVideo()">播放当前可见视频</button>
-            <button onclick="pauseAllList()">全部暂停</button>
-            <button class="danger" onclick="destroyAllList()">全部销毁</button>
+        <!-- 播放控制 -->
+        <div class="control-group">
+            <h3>播放控制</h3>
+            <div class="controls">
+                <button class="primary" onclick="playCurrentVideo()">播放当前可见视频</button>
+                <button class="secondary" onclick="pauseAllList()">全部暂停</button>
+                <button class="danger" onclick="destroyAllList()">全部销毁</button>
+            </div>
         </div>
-        <div style="margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 6px; font-size: 12px;">
-            <strong>说明：</strong>Canvas模式60fps测试，分辨率320px。注意观察性能和流畅度。
+
+        <!-- 帧率控制 -->
+        <div class="control-group">
+            <h3>帧率控制</h3>
+            <div class="controls">
+                <button id="btnFrameSkip" class="selected" onclick="toggleFrameSkip()">隔帧传输: 开启</button>
+                <button class="secondary" onclick="showFrameSkipStatus()">查看状态</button>
+            </div>
+            <div class="controls" style="margin-top: 10px;">
+                <button onclick="setFrameSkipInterval(1)">不跳帧(60fps)</button>
+                <button id="fps30" class="selected" onclick="setFrameSkipInterval(2)">30fps</button>
+                <button onclick="setFrameSkipInterval(3)">20fps</button>
+            </div>
+        </div>
+
+        <!-- 颜色格式 -->
+        <div class="control-group">
+            <h3>颜色格式</h3>
+            <div class="controls">
+                <button id="btnColorFormat" class="selected" onclick="toggleColorFormat()">当前: RGB888</button>
+            </div>
+            <div class="controls" style="margin-top: 10px;">
+                <button onclick="setColorFormatRGBA()">RGBA (无转换)</button>
+                <button id="rgb888" class="selected" onclick="setColorFormatRGB888()">RGB888 (-25%数据)</button>
+            </div>
+        </div>
+            <div style="margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 6px; font-size: 12px;">
+                <strong>说明：</strong>Canvas模式终极优化版：320px + RGB888（减少25%数据） + 隔帧传输30fps（感知接近60fps） + SharedMemory。
+            </div>
         </div>
     </div>
 
-    <!-- 日志 -->
-    <div class="section">
-        <h2>事件日志</h2>
-        <div id="log" class="log"></div>
+    <!-- Layer模式Tab -->
+    <div id="tab-layer" class="tab-content">
+        <!-- 详情页播放器演示 -->
+        <div class="section">
+            <h2>详情页播放器（同层渲染模式）</h2>
+            <div id="video-detail" class="video-container"></div>
+
+            <div class="progress-bar">
+                <div id="progress-detail" class="progress-fill"></div>
+            </div>
+
+            <div class="controls">
+                <button onclick="playDetail()">播放</button>
+                <button onclick="pauseDetail()">暂停</button>
+                <button onclick="seekDetail()">跳转到30s</button>
+                <button class="secondary" onclick="toggleMuteDetail()">静音/取消</button>
+                <button class="danger" onclick="destroyDetail()">销毁</button>
+            </div>
+
+            <div id="status-detail" class="status">状态: 未初始化</div>
+        </div>
     </div>
 
     <script src="js/HybridVideoPlayer.js"></script>
@@ -311,8 +462,18 @@
             const urls = [TEST_VIDEO_URL, TEST_VIDEO_URL_2, TEST_VIDEO_URL_3];
 
             urls.forEach((url, index) => {
+                const containerId = `video-list-${index + 1}`;
+                const container = document.getElementById(containerId);
+
+                // 检查容器是否可见，如果不可见则跳过初始化
+                if (!container || container.offsetParent === null) {
+                    log(`跳过隐藏的视频${index + 1}`, 'info');
+                    listPlayers.push(null); // 占位，保持索引一致
+                    return;
+                }
+
                 const player = new HybridVideoPlayer({
-                    containerId: `video-list-${index + 1}`,
+                    containerId: containerId,
                     renderMode: 'canvas',  // Canvas模式 - 在H5中渲染
                     audioFocusType: 'transient',
                     enableDolby: false,
@@ -347,15 +508,17 @@
             });
         }
 
-        // 播放当前可见的视频（智能单播）
+        // 播放当前可见的视频（手动触发，强制播放）
         function playCurrentVideo() {
             initListPlayers();
 
-            // 检测哪个视频在视口中最多
-            let maxVisiblePlayer = null;
+            // 找出最可见的视频
+            let mostVisibleIndex = -1;
             let maxVisibleRatio = 0;
 
             listPlayers.forEach((player, index) => {
+                if (!player) return;
+
                 const container = document.getElementById(`video-list-${index + 1}`);
                 if (!container) return;
 
@@ -368,21 +531,41 @@
 
                 if (visibleRatio > maxVisibleRatio) {
                     maxVisibleRatio = visibleRatio;
-                    maxVisiblePlayer = player;
+                    mostVisibleIndex = index;
                 }
             });
 
-            // 暂停其他视频
-            listPlayers.forEach(p => {
-                if (p !== maxVisiblePlayer) {
-                    p.pause();
-                }
-            });
+            // 如果找到可见的视频（可见比例 > 30%）
+            if (mostVisibleIndex !== -1 && maxVisibleRatio > 0.3) {
+                // 暂停其他正在播放的视频
+                listPlayers.forEach((player, index) => {
+                    if (player && index !== mostVisibleIndex && currentPlayingIndex === index) {
+                        player.pause();
+                        log(`暂停视频${index + 1}`);
+                    }
+                });
 
-            // 播放最可见的视频
-            if (maxVisiblePlayer && maxVisibleRatio > 0.5) {
-                maxVisiblePlayer.play(maxVisiblePlayer._videoUrl);
-                log('播放最可见的视频');
+                // 强制播放最可见的视频
+                const targetPlayer = listPlayers[mostVisibleIndex];
+                if (targetPlayer) {
+                    targetPlayer.play(targetPlayer._videoUrl);
+                    currentPlayingIndex = mostVisibleIndex;
+                    log(`手动播放视频${mostVisibleIndex + 1}`, 'success');
+
+                    // 更新可见性状态
+                    lastVisibilityStates = listPlayers.map((player, index) => {
+                        if (!player) return false;
+                        const container = document.getElementById(`video-list-${index + 1}`);
+                        if (!container) return false;
+                        const rect = container.getBoundingClientRect();
+                        const windowHeight = window.innerHeight;
+                        const visibleHeight = Math.min(rect.bottom, windowHeight) - Math.max(rect.top, 0);
+                        const visibleRatio = Math.max(0, visibleHeight) / rect.height;
+                        return visibleRatio > 0.3;
+                    });
+                }
+            } else {
+                log('没有找到可见的视频', 'info');
             }
         }
 
@@ -425,28 +608,250 @@
             }
         }
 
-        // 监听滚动，自动播放可见视频
+        // 监听滚动，智能检测可见性变化
         let scrollTimer = null;
+        let currentPlayingIndex = -1; // 当前正在播放的视频索引
+        let lastVisibilityStates = []; // 记录上次的可见性状态
+
         window.addEventListener('scroll', () => {
             if (listPlayers.length === 0) return;
 
             clearTimeout(scrollTimer);
             scrollTimer = setTimeout(() => {
-                playCurrentVideo();
+                checkVisibilityAndPlayPause();
             }, 200);
         }, { passive: true });
 
+        /**
+         * 检测可见性变化并智能播放/暂停
+         */
+        function checkVisibilityAndPlayPause() {
+            const currentVisibilityStates = [];
+            let mostVisibleIndex = -1;
+            let maxVisibleRatio = 0;
+
+            // 计算每个视频的可见比例
+            listPlayers.forEach((player, index) => {
+                if (!player) {
+                    currentVisibilityStates.push(false);
+                    return;
+                }
+
+                const container = document.getElementById(`video-list-${index + 1}`);
+                if (!container) {
+                    currentVisibilityStates.push(false);
+                    return;
+                }
+
+                const rect = container.getBoundingClientRect();
+                const windowHeight = window.innerHeight;
+
+                // 计算可见比例
+                const visibleHeight = Math.min(rect.bottom, windowHeight) - Math.max(rect.top, 0);
+                const visibleRatio = Math.max(0, visibleHeight) / rect.height;
+
+                // 判断是否可见（可见比例大于30%算作可见）
+                const isVisible = visibleRatio > 0.3;
+                currentVisibilityStates.push(isVisible);
+
+                // 找出最可见的视频
+                if (visibleRatio > maxVisibleRatio) {
+                    maxVisibleRatio = visibleRatio;
+                    mostVisibleIndex = index;
+                }
+            });
+
+            // 检测可见性变化
+            listPlayers.forEach((player, index) => {
+                if (!player) return;
+
+                const wasVisible = lastVisibilityStates[index] || false;
+                const isVisible = currentVisibilityStates[index];
+
+                // 从不可见变为可见 - 如果这是最可见的视频，则播放
+                if (!wasVisible && isVisible && index === mostVisibleIndex && maxVisibleRatio > 0.5) {
+                    // 暂停其他正在播放的视频
+                    if (currentPlayingIndex !== -1 && currentPlayingIndex !== index) {
+                        const previousPlayer = listPlayers[currentPlayingIndex];
+                        if (previousPlayer) {
+                            previousPlayer.pause();
+                            log(`视频${currentPlayingIndex + 1}变为不可见，已暂停`);
+                        }
+                    }
+
+                    // 播放新视频
+                    player.play(player._videoUrl);
+                    currentPlayingIndex = index;
+                    log(`视频${index + 1}变为可见，开始播放`, 'success');
+                }
+                // 从可见变为不可见 - 暂停
+                else if (wasVisible && !isVisible && currentPlayingIndex === index) {
+                    player.pause();
+                    currentPlayingIndex = -1;
+                    log(`视频${index + 1}变为不可见，已暂停`);
+                }
+            });
+
+            // 更新可见性状态
+            lastVisibilityStates = currentVisibilityStates;
+        }
+
         function pauseAllList() {
-            listPlayers.forEach(player => player.pause());
+            listPlayers.forEach(player => {
+                if (player) player.pause();
+            });
             log('暂停所有列表视频');
         }
 
         function destroyAllList() {
             listPlayers.forEach((player, index) => {
-                player.destroy();
-                log(`销毁列表视频${index + 1}`, 'error');
+                if (player) {
+                    player.destroy();
+                    log(`销毁列表视频${index + 1}`, 'error');
+                }
             });
             listPlayers = [];
+        }
+
+        // ===== 隔帧传输控制函数 =====
+
+        let frameSkipEnabled = true; // 本地状态
+        let useRGB888 = true; // 颜色格式状态
+
+        function toggleFrameSkip() {
+            if (!window.NativeVideoPlayer) {
+                log('Native bridge 不可用', 'error');
+                return;
+            }
+
+            frameSkipEnabled = !frameSkipEnabled;
+            window.NativeVideoPlayer.setFrameSkipEnabled(frameSkipEnabled);
+
+            const btn = document.getElementById('btnFrameSkip');
+            btn.textContent = `隔帧传输: ${frameSkipEnabled ? '开启' : '关闭'}`;
+
+            if (frameSkipEnabled) {
+                btn.classList.add('selected');
+                btn.classList.remove('danger');
+            } else {
+                btn.classList.remove('selected');
+                btn.classList.add('danger');
+            }
+
+            log(`隔帧传输已${frameSkipEnabled ? '开启' : '关闭'}`, 'success');
+        }
+
+        function setFrameSkipInterval(interval) {
+            if (!window.NativeVideoPlayer) {
+                log('Native bridge 不可用', 'error');
+                return;
+            }
+
+            window.NativeVideoPlayer.setFrameSkipInterval(interval);
+
+            // 移除所有帧率按钮的选中状态
+            document.querySelectorAll('#tab-canvas .control-group:nth-child(2) .controls button').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+
+            // 根据间隔添加选中状态
+            if (interval === 1) {
+                event.target.classList.add('selected');
+            } else if (interval === 2) {
+                document.getElementById('fps30')?.classList.add('selected');
+            } else if (interval === 3) {
+                event.target.classList.add('selected');
+            }
+
+            let desc = '';
+            switch(interval) {
+                case 1: desc = '不跳帧 (60fps目标)'; break;
+                case 2: desc = '每2帧传1帧 (30fps)'; break;
+                case 3: desc = '每3帧传1帧 (20fps)'; break;
+                default: desc = `每${interval}帧传1帧`;
+            }
+
+            log(`设置间隔: ${desc}`, 'success');
+        }
+
+        function showFrameSkipStatus() {
+            if (!window.NativeVideoPlayer) {
+                log('Native bridge 不可用', 'error');
+                return;
+            }
+
+            try {
+                const configJson = window.NativeVideoPlayer.getFrameSkipConfig();
+                const config = JSON.parse(configJson);
+
+                log(`当前配置 - 隔帧: ${config.enabled ? '开启' : '关闭'}, 间隔: 每${config.interval}帧传1帧, 格式: ${config.useRGB888 ? 'RGB888' : 'RGBA'}`, 'info');
+            } catch (e) {
+                log('获取配置失败: ' + e.message, 'error');
+            }
+        }
+
+        // ===== 颜色格式控制函数 =====
+
+        function toggleColorFormat() {
+            if (!window.NativeVideoPlayer) {
+                log('Native bridge 不可用', 'error');
+                return;
+            }
+
+            useRGB888 = !useRGB888;
+            window.NativeVideoPlayer.setColorFormat(useRGB888);
+
+            const btn = document.getElementById('btnColorFormat');
+            btn.textContent = `当前: ${useRGB888 ? 'RGB888' : 'RGBA'}`;
+
+            // 更新下方按钮的选中状态
+            if (useRGB888) {
+                document.getElementById('rgb888')?.classList.add('selected');
+                document.querySelectorAll('#tab-canvas .control-group:nth-child(3) .controls:last-child button:first-child').forEach(b => b.classList.remove('selected'));
+            } else {
+                document.getElementById('rgb888')?.classList.remove('selected');
+                document.querySelectorAll('#tab-canvas .control-group:nth-child(3) .controls:last-child button:first-child').forEach(b => b.classList.add('selected'));
+            }
+
+            log(`颜色格式已切换为 ${useRGB888 ? 'RGB888 (JS需转换, -25%数据)' : 'RGBA (无需转换, +33%数据)'}`, 'success');
+        }
+
+        function setColorFormatRGBA() {
+            if (!window.NativeVideoPlayer) {
+                log('Native bridge 不可用', 'error');
+                return;
+            }
+
+            useRGB888 = false;
+            window.NativeVideoPlayer.setColorFormat(false);
+
+            const btn = document.getElementById('btnColorFormat');
+            btn.textContent = '当前: RGBA';
+
+            // 更新选中状态
+            document.getElementById('rgb888')?.classList.remove('selected');
+            event.target.classList.add('selected');
+
+            log('设置为RGBA格式 (无需JS转换, 但数据量+33%)', 'success');
+        }
+
+        function setColorFormatRGB888() {
+            if (!window.NativeVideoPlayer) {
+                log('Native bridge 不可用', 'error');
+                return;
+            }
+
+            useRGB888 = true;
+            window.NativeVideoPlayer.setColorFormat(true);
+
+            const btn = document.getElementById('btnColorFormat');
+            btn.textContent = '当前: RGB888';
+
+            // 更新选中状态
+            document.querySelectorAll('#tab-canvas .control-group:nth-child(3) .controls:last-child button').forEach(b => b.classList.remove('selected'));
+            event.target.classList.add('selected');
+
+            log('设置为RGB888格式 (需JS转换RGB→RGBA, 但数据量-25%)', 'success');
         }
 
         // 工具函数
@@ -463,6 +868,40 @@
             return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
         }
 
+        // 日志工具函数
+        function clearLog() {
+            const logEl = document.getElementById('log');
+            if (logEl) {
+                logEl.innerHTML = '';
+                log('日志已清空', 'info');
+            }
+        }
+
+        function scrollToTop() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Tab切换函数
+        function switchTab(tabName) {
+            // 隐藏所有Tab内容
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+
+            // 移除所有Tab按钮的active状态
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // 显示选中的Tab内容
+            document.getElementById('tab-' + tabName).classList.add('active');
+
+            // 激活对应的Tab按钮
+            event.target.classList.add('active');
+
+            log('切换到 ' + (tabName === 'canvas' ? 'Canvas模式' : 'Layer模式'), 'info');
+        }
+
         // 页面加载完成后的初始化
         window.addEventListener('load', () => {
             log('页面加载完成', 'success');
@@ -474,7 +913,9 @@
             if (detailPlayer) {
                 detailPlayer.destroy();
             }
-            listPlayers.forEach(player => player.destroy());
+            listPlayers.forEach(player => {
+                if (player) player.destroy();
+            });
         });
     </script>
 </body>
