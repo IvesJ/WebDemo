@@ -354,8 +354,8 @@ class CanvasVideoRenderer(
                 // 只在第一帧和尺寸变化时输出日志
                 // Log.d("CanvasVideoRenderer", "Capturing frame: ${originalBitmap.width}x${originalBitmap.height}")
 
-                // 性能优化：使用320px
-                val maxDimension = 320
+                // 使用配置的分辨率
+                val maxDimension = config.canvasResolution
                 val scaledBitmap = if (originalBitmap.width > maxDimension || originalBitmap.height > maxDimension) {
                     val scale = minOf(
                         maxDimension.toFloat() / originalBitmap.width,

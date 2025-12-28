@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>混合视频播放器演示</title>
+    <title>混合视频播放器</title>
     <style>
         * {
             margin: 0;
@@ -12,246 +12,123 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background: #f5f5f5;
-            padding: 20px;
+            font-family: 'Roboto', -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 16px;
+            padding-top: 180px;
         }
 
-        h1 {
-            font-size: 24px;
-            margin-bottom: 20px;
-            color: #333;
-        }
-
-        .section {
+        /* Material Design卡片 */
+        .card {
             background: white;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-
-        h2 {
-            font-size: 18px;
-            margin-bottom: 15px;
-            color: #666;
-        }
-
-        /* 视频容器样式 */
-        .video-container {
-            width: 100%;
-            height: 200px;
-            background: #000;
-            border-radius: 8px;
+            border-radius: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.08);
             overflow: hidden;
-            position: relative;
-            margin-bottom: 15px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
 
-        /* 控制面板 */
-        .controls {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin-bottom: 10px;
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.15), 0 6px 12px rgba(0,0,0,0.1);
         }
 
-        .control-group {
-            background: #f9f9f9;
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 15px;
-        }
-
-        .control-group h3 {
-            font-size: 14px;
-            color: #666;
-            margin-bottom: 10px;
-            font-weight: 600;
-        }
-
-        button {
-            padding: 10px 20px;
-            border: 2px solid transparent;
-            border-radius: 8px;
-            background: #f0f0f0;
-            color: #333;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-        }
-
-        button:active {
-            transform: translateY(0);
-            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-        }
-
-        button.primary {
+        .card-header {
+            padding: 20px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
         }
 
-        button.primary:hover {
-            background: linear-gradient(135deg, #5568d3 0%, #63408b 100%);
-        }
-
-        button.secondary {
-            background: #5AC8FA;
-            color: white;
-        }
-
-        button.secondary:hover {
-            background: #47b8e8;
-        }
-
-        button.danger {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: white;
-        }
-
-        button.danger:hover {
-            background: linear-gradient(135deg, #de7fe9 0%, #e3445a 100%);
-        }
-
-        button.selected {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-color: #4a5fd7;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
-        }
-
-        button.success {
-            background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
-            color: #333;
-        }
-
-        button.warning {
-            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
-            color: #333;
-        }
-
-        /* 进度条 */
-        .progress-bar {
-            width: 100%;
-            height: 4px;
-            background: #ddd;
-            border-radius: 2px;
-            overflow: hidden;
-            margin-bottom: 10px;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: #007AFF;
-            width: 0%;
-            transition: width 0.1s linear;
-        }
-
-        /* 状态信息 */
-        .status {
-            font-size: 12px;
-            color: #666;
-            line-height: 1.6;
-        }
-
-        /* 列表流演示 */
-        .video-list {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .video-item {
-            background: white;
-            border-radius: 8px;
-            padding: 15px;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-        }
-
-        .video-item .video-container {
-            height: 180px;
-            margin-bottom: 10px;
-        }
-
-        .video-item .title {
-            font-size: 14px;
+        .card-header h1 {
+            font-size: 28px;
             font-weight: 500;
-            margin-bottom: 5px;
-            color: #333;
+            letter-spacing: 0.5px;
         }
 
-        .video-item .meta {
-            font-size: 12px;
-            color: #999;
+        .card-content {
+            padding: 20px;
         }
 
-        /* 日志 - 悬浮固定 */
-        #log-container {
+        /* 悬浮日志 */
+        .log-container {
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
             background: white;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
             z-index: 1000;
-            padding: 10px;
+            padding: 16px;
+        }
+
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .log-title {
+            font-size: 16px;
+            font-weight: 500;
+            color: #333;
         }
 
         .log {
-            max-height: 120px;
+            max-height: 100px;
             overflow-y: auto;
-            background: #f8f8f8;
-            padding: 8px;
-            border-radius: 6px;
-            font-family: monospace;
-            font-size: 10px;
-            line-height: 1.4;
-        }
-
-        /* 为悬浮日志留出空间 */
-        body {
-            padding-top: 160px;
+            background: #f5f5f5;
+            padding: 12px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            line-height: 1.5;
         }
 
         .log-item {
             margin-bottom: 4px;
         }
 
-        .log-item.info { color: #007AFF; }
-        .log-item.success { color: #34C759; }
-        .log-item.error { color: #FF3B30; }
+        .log-item.info { color: #2196F3; }
+        .log-item.success { color: #4CAF50; }
+        .log-item.error { color: #F44336; }
 
-        /* Tab样式 */
+        /* Tab切换 */
         .tabs {
             display: flex;
             gap: 0;
-            border-bottom: 2px solid #ddd;
-            margin-bottom: 20px;
+            border-radius: 12px 12px 0 0;
+            overflow: hidden;
+            background: #f5f5f5;
         }
 
         .tab {
             flex: 1;
-            padding: 12px;
+            padding: 16px;
             background: #f5f5f5;
             border: none;
-            border-bottom: 3px solid transparent;
-            font-size: 14px;
+            font-size: 15px;
             font-weight: 500;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.3s;
+            color: #666;
+            position: relative;
         }
 
         .tab.active {
             background: white;
-            border-bottom-color: #007AFF;
-            color: #007AFF;
+            color: #667eea;
+        }
+
+        .tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
 
         .tab-content {
@@ -261,126 +138,434 @@
         .tab-content.active {
             display: block;
         }
+
+        /* 视频列表项 */
+        .video-item {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: all 0.3s;
+        }
+
+        .video-item:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        }
+
+        .video-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .video-title {
+            font-size: 16px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .video-meta {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .video-container {
+            width: 100%;
+            height: 220px;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            margin-bottom: 12px;
+        }
+
+        /* 按钮样式 */
+        button, .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            background: #f0f0f0;
+            color: #333;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        button:hover, .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        button:active, .btn:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #5AC8FA 0%, #4A90E2 100%);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #FF6B6B 0%, #EE5A6F 100%);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #56CCF2 0%, #2F80ED 100%);
+            color: white;
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 13px;
+        }
+
+        /* Switch开关 */
+        .switch-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 48px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(24px);
+        }
+
+        .switch-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        /* Select控件 */
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            background: white;
+            font-size: 14px;
+            color: #333;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        /* 设置面板 */
+        .settings-panel {
+            background: #f9f9f9;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .settings-title {
+            font-size: 16px;
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 16px;
+        }
+
+        /* 视频控制按钮组 */
+        .video-controls {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        /* 进度条 */
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #e0e0e0;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        .status {
+            font-size: 13px;
+            color: #666;
+            padding: 8px 12px;
+            background: #f5f5f5;
+            border-radius: 6px;
+            margin-top: 8px;
+        }
+
+        /* 图标 */
+        .icon {
+            font-style: normal;
+        }
     </style>
 </head>
 <body>
     <!-- 悬浮日志 -->
-    <div id="log-container">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-            <h2 style="margin: 0; font-size: 14px;">事件日志</h2>
-            <div>
-                <button class="secondary" style="padding: 5px 10px; font-size: 12px;" onclick="clearLog()">清空</button>
-            </div>
+    <div class="log-container">
+        <div class="log-header">
+            <span class="log-title">📋 事件日志</span>
+            <button class="btn-small btn-secondary" onclick="clearLog()">清空</button>
         </div>
         <div id="log" class="log"></div>
     </div>
 
-    <h1>混合视频播放器演示</h1>
+    <!-- 主标题卡片 -->
+    <div class="card">
+        <div class="card-header">
+            <h1>🎬 混合视频播放器</h1>
+        </div>
+    </div>
 
     <!-- Tab切换 -->
-    <div class="tabs">
-        <button class="tab active" onclick="switchTab('canvas')">Canvas模式测试</button>
-        <button class="tab" onclick="switchTab('layer')">Layer模式</button>
-    </div>
+    <div class="card">
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('canvas')">Canvas模式</button>
+            <button class="tab" onclick="switchTab('layer')">Layer模式</button>
+        </div>
 
-    <!-- Canvas模式Tab -->
-    <div id="tab-canvas" class="tab-content active">
-        <!-- 列表流演示 -->
-        <div class="section">
-            <h2>列表流（Canvas模式 - 性能测试）</h2>
-        <div class="video-list">
-            <div class="video-item" style="display: none;">
-                <div class="title">视频 1 - 风景 (Canvas 10fps)</div>
-                <div id="video-list-1" class="video-container"></div>
-                <div class="meta">时长: 01:20 | 观看: 1.2K</div>
-            </div>
+        <!-- Canvas模式Tab -->
+        <div id="tab-canvas" class="tab-content active">
+            <div class="card-content">
+                <!-- 自动播放开关 -->
+                <div class="switch-container">
+                    <label class="switch">
+                        <input type="checkbox" id="autoPlaySwitch" checked onchange="toggleAutoPlay()">
+                        <span class="slider"></span>
+                    </label>
+                    <span class="switch-label">列表滑动自动切换播放</span>
+                </div>
 
-            <div class="video-item" style="display: none;">
-                <div class="title">视频 2 - 城市 (Canvas 10fps)</div>
-                <div id="video-list-2" class="video-container"></div>
-                <div class="meta">时长: 02:15 | 观看: 3.4K</div>
-            </div>
+                <!-- 视频列表 -->
+                <div class="video-item">
+                    <div class="video-item-header">
+                        <div>
+                            <div class="video-title">视频 1 - 风景</div>
+                            <div class="video-meta">时长: 01:20 | 观看: 1.2K</div>
+                        </div>
+                    </div>
+                    <div id="video-list-1" class="video-container"></div>
+                    <div class="video-controls">
+                        <button class="btn-primary btn-small" onclick="playVideo(0)">
+                            <span class="icon">▶</span> 播放
+                        </button>
+                        <button class="btn-secondary btn-small" onclick="pauseVideo(0)">
+                            <span class="icon">⏸</span> 暂停
+                        </button>
+                    </div>
+                </div>
 
-            <div class="video-item">
-                <div class="title">视频 3 - 人物 (Canvas 10fps)</div>
-                <div id="video-list-3" class="video-container"></div>
-                <div class="meta">时长: 03:40 | 观看: 5.6K</div>
+                <div class="video-item">
+                    <div class="video-item-header">
+                        <div>
+                            <div class="video-title">视频 2 - 城市</div>
+                            <div class="video-meta">时长: 02:15 | 观看: 3.4K</div>
+                        </div>
+                    </div>
+                    <div id="video-list-2" class="video-container"></div>
+                    <div class="video-controls">
+                        <button class="btn-primary btn-small" onclick="playVideo(1)">
+                            <span class="icon">▶</span> 播放
+                        </button>
+                        <button class="btn-secondary btn-small" onclick="pauseVideo(1)">
+                            <span class="icon">⏸</span> 暂停
+                        </button>
+                    </div>
+                </div>
+
+                <div class="video-item">
+                    <div class="video-item-header">
+                        <div>
+                            <div class="video-title">视频 3 - 人物</div>
+                            <div class="video-meta">时长: 03:40 | 观看: 5.6K</div>
+                        </div>
+                    </div>
+                    <div id="video-list-3" class="video-container"></div>
+                    <div class="video-controls">
+                        <button class="btn-primary btn-small" onclick="playVideo(2)">
+                            <span class="icon">▶</span> 播放
+                        </button>
+                        <button class="btn-secondary btn-small" onclick="pauseVideo(2)">
+                            <span class="icon">⏸</span> 暂停
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 全局控制 -->
+                <div class="settings-panel">
+                    <div class="settings-title">⚙️ 全局控制</div>
+                    <div class="video-controls">
+                        <button class="btn-danger" onclick="pauseAllList()">
+                            <span class="icon">⏸</span> 全部暂停
+                        </button>
+                        <button class="btn-danger" onclick="destroyAllList()">
+                            <span class="icon">🗑</span> 全部销毁
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 性能设置 -->
+                <div class="settings-panel">
+                    <div class="settings-title">🎛️ 性能设置</div>
+
+                    <div class="form-group">
+                        <label class="form-label">视频分辨率（重新创建播放器生效）</label>
+                        <select id="resolutionSelect">
+                            <option value="240">240p (节省流量)</option>
+                            <option value="320" selected>320p (默认推荐)</option>
+                            <option value="480">480p (更清晰)</option>
+                            <option value="640">640p (高清)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">帧率控制</label>
+                        <select id="frameRateSelect" onchange="onFrameRateChange()">
+                            <option value="disabled">关闭隔帧</option>
+                            <option value="30">30 FPS</option>
+                            <option value="20">20 FPS</option>
+                            <option value="15">15 FPS</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">颜色格式</label>
+                        <select id="colorFormatSelect" onchange="onColorFormatChange()">
+                            <option value="rgb888" selected>RGB888 (数据量 -25%)</option>
+                            <option value="rgba">RGBA (无需转换)</option>
+                        </select>
+                    </div>
+
+                    <div class="video-controls">
+                        <button class="btn-secondary" onclick="showCurrentConfig()">
+                            <span class="icon">📊</span> 查看当前配置
+                        </button>
+                    </div>
+                </div>
+
+                <div style="padding: 12px; background: #E3F2FD; border-radius: 8px; font-size: 13px; color: #1976D2;">
+                    <strong>💡 优化说明：</strong> Canvas模式使用320px + RGB888格式 + SharedMemory实现高性能渲染。关闭隔帧可获得最高帧率。
+                </div>
             </div>
         </div>
 
-        <!-- 播放控制 -->
-        <div class="control-group">
-            <h3>播放控制</h3>
-            <div class="controls">
-                <button class="primary" onclick="playCurrentVideo()">播放当前可见视频</button>
-                <button class="secondary" onclick="pauseAllList()">全部暂停</button>
-                <button class="danger" onclick="destroyAllList()">全部销毁</button>
-            </div>
-        </div>
+        <!-- Layer模式Tab -->
+        <div id="tab-layer" class="tab-content">
+            <div class="card-content">
+                <div class="settings-title">📺 详情页播放器（同层渲染）</div>
 
-        <!-- 帧率控制 -->
-        <div class="control-group">
-            <h3>帧率控制</h3>
-            <div class="controls">
-                <button id="btnFrameSkip" class="selected" onclick="toggleFrameSkip()">隔帧传输: 开启</button>
-                <button class="secondary" onclick="showFrameSkipStatus()">查看状态</button>
-            </div>
-            <div class="controls" style="margin-top: 10px;">
-                <button onclick="setFrameSkipInterval(1)">不跳帧(60fps)</button>
-                <button id="fps30" class="selected" onclick="setFrameSkipInterval(2)">30fps</button>
-                <button onclick="setFrameSkipInterval(3)">20fps</button>
-            </div>
-        </div>
+                <div id="video-detail" class="video-container"></div>
 
-        <!-- 颜色格式 -->
-        <div class="control-group">
-            <h3>颜色格式</h3>
-            <div class="controls">
-                <button id="btnColorFormat" class="selected" onclick="toggleColorFormat()">当前: RGB888</button>
-            </div>
-            <div class="controls" style="margin-top: 10px;">
-                <button onclick="setColorFormatRGBA()">RGBA (无转换)</button>
-                <button id="rgb888" class="selected" onclick="setColorFormatRGB888()">RGB888 (-25%数据)</button>
-            </div>
-        </div>
-            <div style="margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 6px; font-size: 12px;">
-                <strong>说明：</strong>Canvas模式终极优化版：320px + RGB888（减少25%数据） + 隔帧传输30fps（感知接近60fps） + SharedMemory。
-            </div>
-        </div>
-    </div>
+                <div class="progress-bar">
+                    <div id="progress-detail" class="progress-fill"></div>
+                </div>
 
-    <!-- Layer模式Tab -->
-    <div id="tab-layer" class="tab-content">
-        <!-- 详情页播放器演示 -->
-        <div class="section">
-            <h2>详情页播放器（同层渲染模式）</h2>
-            <div id="video-detail" class="video-container"></div>
+                <div class="video-controls">
+                    <button class="btn-primary" onclick="playDetail()">
+                        <span class="icon">▶</span> 播放
+                    </button>
+                    <button class="btn-secondary" onclick="pauseDetail()">
+                        <span class="icon">⏸</span> 暂停
+                    </button>
+                    <button class="btn-secondary" onclick="seekDetail()">
+                        <span class="icon">⏩</span> 跳转30s
+                    </button>
+                    <button class="btn-secondary" onclick="toggleMuteDetail()">
+                        <span class="icon">🔇</span> 静音
+                    </button>
+                    <button class="btn-danger" onclick="destroyDetail()">
+                        <span class="icon">🗑</span> 销毁
+                    </button>
+                </div>
 
-            <div class="progress-bar">
-                <div id="progress-detail" class="progress-fill"></div>
+                <div id="status-detail" class="status">状态: 未初始化</div>
             </div>
-
-            <div class="controls">
-                <button onclick="playDetail()">播放</button>
-                <button onclick="pauseDetail()">暂停</button>
-                <button onclick="seekDetail()">跳转到30s</button>
-                <button class="secondary" onclick="toggleMuteDetail()">静音/取消</button>
-                <button class="danger" onclick="destroyDetail()">销毁</button>
-            </div>
-
-            <div id="status-detail" class="status">状态: 未初始化</div>
         </div>
     </div>
 
     <script src="js/HybridVideoPlayer.js"></script>
     <script>
-        // 示例视频URL（使用可靠的测试视频源）
-        // 这些是公开的测试视频，可以直接播放
-        // const TEST_VIDEO_URL = 'http://vfx.mtime.cn/Video/2019/03/19/mp4/190319222227698228.mp4';
-        // const TEST_VIDEO_URL_2 = 'http://vfx.mtime.cn/Video/2019/03/21/mp4/190321153853126488.mp4';
-        // const TEST_VIDEO_URL_3 = 'http://vfx.mtime.cn/Video/2019/03/19/mp4/190319212559089721.mp4';
-
-        // 备用视频源（如果上面的不可用，可以尝试这些）
+        // 视频URL
         const TEST_VIDEO_URL = 'https://www.w3schools.com/html/mov_bbb.mp4';
         const TEST_VIDEO_URL_2 = 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4';
         const TEST_VIDEO_URL_3 = 'https://media.w3.org/2010/05/sintel/trailer.mp4';
@@ -388,6 +573,15 @@
         // 播放器实例
         let detailPlayer = null;
         let listPlayers = [];
+
+        // 自动播放开关状态
+        let autoPlayEnabled = true;
+        let currentPlayingIndex = -1;
+        let lastVisibilityStates = [];
+
+        // 默认设置：关闭隔帧（实测FPS最高）
+        let frameSkipEnabled = false;
+        let useRGB888 = true;
 
         // 日志函数
         function log(message, type = 'info') {
@@ -400,7 +594,247 @@
             logEl.scrollTop = logEl.scrollHeight;
         }
 
-        // 初始化详情页播放器
+        function clearLog() {
+            const logEl = document.getElementById('log');
+            if (logEl) {
+                logEl.innerHTML = '';
+                log('日志已清空', 'info');
+            }
+        }
+
+        // 初始化列表播放器
+        function initListPlayers() {
+            if (listPlayers.length > 0) {
+                return;
+            }
+
+            log('初始化列表播放器（Canvas模式）');
+
+            const urls = [TEST_VIDEO_URL, TEST_VIDEO_URL_2, TEST_VIDEO_URL_3];
+
+            urls.forEach((url, index) => {
+                const containerId = `video-list-${index + 1}`;
+
+                // 获取选择的分辨率
+                const resolution = parseInt(document.getElementById('resolutionSelect').value);
+
+                const player = new HybridVideoPlayer({
+                    containerId: containerId,
+                    renderMode: 'canvas',
+                    audioFocusType: 'transient',
+                    enableDolby: false,
+                    maxFrameRate: 60,
+                    autoPlay: false,
+                    canvasResolution: resolution
+                });
+
+                player.on('playing', () => {
+                    log(`视频${index + 1}开始播放`, 'success');
+                });
+
+                player.on('error', (error) => {
+                    log(`视频${index + 1}错误: ${error.message}`, 'error');
+                });
+
+                let frameCount = 0;
+                let lastLogTime = Date.now();
+                player.on('framerendered', () => {
+                    frameCount++;
+                    const now = Date.now();
+                    if (now - lastLogTime > 3000) {
+                        const fps = frameCount / 3;
+                        log(`视频${index + 1} 实际FPS: ${fps.toFixed(1)}`, 'info');
+                        frameCount = 0;
+                        lastLogTime = now;
+                    }
+                });
+
+                player._videoUrl = urls[index];
+                listPlayers.push(player);
+            });
+
+            // 初始化可见性状态为实际状态（而不是全false）
+            // 这样滚动时才能正确检测到"不可见→可见"的变化
+            updateVisibilityStates();
+        }
+
+        // 播放指定视频
+        function playVideo(index) {
+            initListPlayers();
+
+            const player = listPlayers[index];
+            if (player) {
+                // 暂停其他视频
+                listPlayers.forEach((p, i) => {
+                    if (p && i !== index && currentPlayingIndex === i) {
+                        p.pause();
+                    }
+                });
+
+                player.play(player._videoUrl);
+                currentPlayingIndex = index;
+                log(`手动播放视频${index + 1}`, 'success');
+            }
+        }
+
+        // 暂停指定视频
+        function pauseVideo(index) {
+            const player = listPlayers[index];
+            if (player) {
+                player.pause();
+                if (currentPlayingIndex === index) {
+                    currentPlayingIndex = -1;
+                }
+                log(`暂停视频${index + 1}`);
+            }
+        }
+
+        // 暂停所有视频
+        function pauseAllList() {
+            listPlayers.forEach((player, index) => {
+                if (player) {
+                    player.pause();
+                }
+            });
+            currentPlayingIndex = -1;
+            log('暂停所有列表视频');
+        }
+
+        // 销毁所有视频
+        function destroyAllList() {
+            listPlayers.forEach((player, index) => {
+                if (player) {
+                    player.destroy();
+                    log(`销毁列表视频${index + 1}`, 'error');
+                }
+            });
+            listPlayers = [];
+            currentPlayingIndex = -1;
+        }
+
+        // 切换自动播放
+        function toggleAutoPlay() {
+            autoPlayEnabled = document.getElementById('autoPlaySwitch').checked;
+            log(`自动播放${autoPlayEnabled ? '开启' : '关闭'}`, 'success');
+        }
+
+        // 更新可见性状态（不触发播放/暂停）
+        function updateVisibilityStates() {
+            lastVisibilityStates = listPlayers.map((player, index) => {
+                const container = document.getElementById(`video-list-${index + 1}`);
+                if (!container) return false;
+
+                const rect = container.getBoundingClientRect();
+                const windowHeight = window.innerHeight;
+                const visibleHeight = Math.min(rect.bottom, windowHeight) - Math.max(rect.top, 0);
+                const visibleRatio = Math.max(0, visibleHeight) / rect.height;
+                return visibleRatio > 0.3;
+            });
+        }
+
+        // 监听滚动（快速响应）
+        let scrollTimer = null;
+        window.addEventListener('scroll', () => {
+            if (!autoPlayEnabled || listPlayers.length === 0) return;
+
+            clearTimeout(scrollTimer);
+            scrollTimer = setTimeout(() => {
+                checkVisibilityAndPlayPause();
+            }, 100); // 减少延迟从200ms到100ms，更快响应
+        }, { passive: true });
+
+        // 检测可见性并自动切换播放（实时检测，不依赖状态变化）
+        function checkVisibilityAndPlayPause() {
+            if (!autoPlayEnabled) return;
+
+            let mostVisibleIndex = -1;
+            let maxVisibleRatio = 0;
+
+            // 找出当前最可见的视频
+            listPlayers.forEach((player, index) => {
+                const container = document.getElementById(`video-list-${index + 1}`);
+                if (!container) return;
+
+                const rect = container.getBoundingClientRect();
+                const windowHeight = window.innerHeight;
+                const visibleHeight = Math.min(rect.bottom, windowHeight) - Math.max(rect.top, 0);
+                const visibleRatio = Math.max(0, visibleHeight) / rect.height;
+
+                if (visibleRatio > maxVisibleRatio) {
+                    maxVisibleRatio = visibleRatio;
+                    mostVisibleIndex = index;
+                }
+            });
+
+            // 如果找到可见视频（可见度>20%即可切换，更灵敏）
+            if (mostVisibleIndex !== -1 && maxVisibleRatio > 0.2) {
+                // 如果不是当前播放的视频，则切换
+                if (currentPlayingIndex !== mostVisibleIndex) {
+                    // 暂停之前的视频
+                    if (currentPlayingIndex !== -1) {
+                        const previousPlayer = listPlayers[currentPlayingIndex];
+                        if (previousPlayer) {
+                            previousPlayer.pause();
+                            log(`切换播放：暂停视频${currentPlayingIndex + 1}`);
+                        }
+                    }
+
+                    // 播放新视频
+                    const newPlayer = listPlayers[mostVisibleIndex];
+                    if (newPlayer) {
+                        newPlayer.play(newPlayer._videoUrl);
+                        currentPlayingIndex = mostVisibleIndex;
+                        log(`切换播放：播放视频${mostVisibleIndex + 1} (可见度${(maxVisibleRatio * 100).toFixed(0)}%)`, 'success');
+                    }
+                }
+            }
+            // 如果没有足够可见的视频（都看不到了），暂停当前播放
+            else if (currentPlayingIndex !== -1 && maxVisibleRatio < 0.1) {
+                const currentPlayer = listPlayers[currentPlayingIndex];
+                if (currentPlayer) {
+                    currentPlayer.pause();
+                    log(`视频${currentPlayingIndex + 1}不可见，已暂停`);
+                    currentPlayingIndex = -1;
+                }
+            }
+        }
+
+        // 帧率控制
+        function onFrameRateChange() {
+            if (!window.NativeVideoPlayer) {
+                log('Native bridge 不可用', 'error');
+                return;
+            }
+
+            const value = document.getElementById('frameRateSelect').value;
+
+            if (value === 'disabled') {
+                window.NativeVideoPlayer.setFrameSkipEnabled(false);
+                log('关闭隔帧传输（最高FPS）', 'success');
+            } else {
+                const fps = parseInt(value);
+                const interval = 60 / fps; // 计算间隔
+                window.NativeVideoPlayer.setFrameSkipEnabled(true);
+                window.NativeVideoPlayer.setFrameSkipInterval(Math.round(interval));
+                log(`设置帧率: ${fps}fps`, 'success');
+            }
+        }
+
+        // 颜色格式控制
+        function onColorFormatChange() {
+            if (!window.NativeVideoPlayer) {
+                log('Native bridge 不可用', 'error');
+                return;
+            }
+
+            const value = document.getElementById('colorFormatSelect').value;
+            const useRGB = value === 'rgb888';
+
+            window.NativeVideoPlayer.setColorFormat(useRGB);
+            log(`设置颜色格式: ${useRGB ? 'RGB888 (数据量-25%)' : 'RGBA (无需转换)'}`, 'success');
+        }
+
+        // 详情页播放器
         function initDetailPlayer() {
             if (detailPlayer) {
                 return detailPlayer;
@@ -410,13 +844,12 @@
 
             detailPlayer = new HybridVideoPlayer({
                 containerId: 'video-detail',
-                renderMode: 'layer',  // 同层渲染
-                audioFocusType: 'gain',  // 长时间焦点
+                renderMode: 'layer',
+                audioFocusType: 'gain',
                 enableDolby: true,
                 autoPlay: false
             });
 
-            // 监听事件
             detailPlayer.on('prepared', () => {
                 log('详情页播放器准备完成', 'success');
                 updateStatus('detail', '准备完成');
@@ -451,125 +884,6 @@
             return detailPlayer;
         }
 
-        // 初始化列表播放器
-        function initListPlayers() {
-            if (listPlayers.length > 0) {
-                return;
-            }
-
-            log('初始化列表播放器（Canvas模式）');
-
-            const urls = [TEST_VIDEO_URL, TEST_VIDEO_URL_2, TEST_VIDEO_URL_3];
-
-            urls.forEach((url, index) => {
-                const containerId = `video-list-${index + 1}`;
-                const container = document.getElementById(containerId);
-
-                // 检查容器是否可见，如果不可见则跳过初始化
-                if (!container || container.offsetParent === null) {
-                    log(`跳过隐藏的视频${index + 1}`, 'info');
-                    listPlayers.push(null); // 占位，保持索引一致
-                    return;
-                }
-
-                const player = new HybridVideoPlayer({
-                    containerId: containerId,
-                    renderMode: 'canvas',  // Canvas模式 - 在H5中渲染
-                    audioFocusType: 'transient',
-                    enableDolby: false,
-                    maxFrameRate: 60,  // 60fps - 测试最大帧率
-                    autoPlay: false
-                });
-
-                player.on('playing', () => {
-                    log(`列表视频${index + 1}开始播放 (Canvas 60fps)`, 'success');
-                });
-
-                player.on('error', (error) => {
-                    log(`列表视频${index + 1}错误: ${error.message}`, 'error');
-                });
-
-                let frameCount = 0;
-                let lastLogTime = Date.now();
-                player.on('framerendered', () => {
-                    frameCount++;
-                    const now = Date.now();
-                    if (now - lastLogTime > 3000) { // 每3秒统计一次
-                        const fps = frameCount / 3;
-                        log(`视频${index + 1} 实际FPS: ${fps.toFixed(1)}`, 'info');
-                        frameCount = 0;
-                        lastLogTime = now;
-                    }
-                });
-
-                // 存储URL
-                player._videoUrl = urls[index];
-                listPlayers.push(player);
-            });
-        }
-
-        // 播放当前可见的视频（手动触发，强制播放）
-        function playCurrentVideo() {
-            initListPlayers();
-
-            // 找出最可见的视频
-            let mostVisibleIndex = -1;
-            let maxVisibleRatio = 0;
-
-            listPlayers.forEach((player, index) => {
-                if (!player) return;
-
-                const container = document.getElementById(`video-list-${index + 1}`);
-                if (!container) return;
-
-                const rect = container.getBoundingClientRect();
-                const windowHeight = window.innerHeight;
-
-                // 计算可见比例
-                const visibleHeight = Math.min(rect.bottom, windowHeight) - Math.max(rect.top, 0);
-                const visibleRatio = Math.max(0, visibleHeight) / rect.height;
-
-                if (visibleRatio > maxVisibleRatio) {
-                    maxVisibleRatio = visibleRatio;
-                    mostVisibleIndex = index;
-                }
-            });
-
-            // 如果找到可见的视频（可见比例 > 30%）
-            if (mostVisibleIndex !== -1 && maxVisibleRatio > 0.3) {
-                // 暂停其他正在播放的视频
-                listPlayers.forEach((player, index) => {
-                    if (player && index !== mostVisibleIndex && currentPlayingIndex === index) {
-                        player.pause();
-                        log(`暂停视频${index + 1}`);
-                    }
-                });
-
-                // 强制播放最可见的视频
-                const targetPlayer = listPlayers[mostVisibleIndex];
-                if (targetPlayer) {
-                    targetPlayer.play(targetPlayer._videoUrl);
-                    currentPlayingIndex = mostVisibleIndex;
-                    log(`手动播放视频${mostVisibleIndex + 1}`, 'success');
-
-                    // 更新可见性状态
-                    lastVisibilityStates = listPlayers.map((player, index) => {
-                        if (!player) return false;
-                        const container = document.getElementById(`video-list-${index + 1}`);
-                        if (!container) return false;
-                        const rect = container.getBoundingClientRect();
-                        const windowHeight = window.innerHeight;
-                        const visibleHeight = Math.min(rect.bottom, windowHeight) - Math.max(rect.top, 0);
-                        const visibleRatio = Math.max(0, visibleHeight) / rect.height;
-                        return visibleRatio > 0.3;
-                    });
-                }
-            } else {
-                log('没有找到可见的视频', 'info');
-            }
-        }
-
-        // 详情页播放器控制
         function playDetail() {
             const player = initDetailPlayer();
             player.play(TEST_VIDEO_URL);
@@ -608,250 +922,20 @@
             }
         }
 
-        // 监听滚动，智能检测可见性变化
-        let scrollTimer = null;
-        let currentPlayingIndex = -1; // 当前正在播放的视频索引
-        let lastVisibilityStates = []; // 记录上次的可见性状态
-
-        window.addEventListener('scroll', () => {
-            if (listPlayers.length === 0) return;
-
-            clearTimeout(scrollTimer);
-            scrollTimer = setTimeout(() => {
-                checkVisibilityAndPlayPause();
-            }, 200);
-        }, { passive: true });
-
-        /**
-         * 检测可见性变化并智能播放/暂停
-         */
-        function checkVisibilityAndPlayPause() {
-            const currentVisibilityStates = [];
-            let mostVisibleIndex = -1;
-            let maxVisibleRatio = 0;
-
-            // 计算每个视频的可见比例
-            listPlayers.forEach((player, index) => {
-                if (!player) {
-                    currentVisibilityStates.push(false);
-                    return;
-                }
-
-                const container = document.getElementById(`video-list-${index + 1}`);
-                if (!container) {
-                    currentVisibilityStates.push(false);
-                    return;
-                }
-
-                const rect = container.getBoundingClientRect();
-                const windowHeight = window.innerHeight;
-
-                // 计算可见比例
-                const visibleHeight = Math.min(rect.bottom, windowHeight) - Math.max(rect.top, 0);
-                const visibleRatio = Math.max(0, visibleHeight) / rect.height;
-
-                // 判断是否可见（可见比例大于30%算作可见）
-                const isVisible = visibleRatio > 0.3;
-                currentVisibilityStates.push(isVisible);
-
-                // 找出最可见的视频
-                if (visibleRatio > maxVisibleRatio) {
-                    maxVisibleRatio = visibleRatio;
-                    mostVisibleIndex = index;
-                }
+        // Tab切换
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
             });
 
-            // 检测可见性变化
-            listPlayers.forEach((player, index) => {
-                if (!player) return;
-
-                const wasVisible = lastVisibilityStates[index] || false;
-                const isVisible = currentVisibilityStates[index];
-
-                // 从不可见变为可见 - 如果这是最可见的视频，则播放
-                if (!wasVisible && isVisible && index === mostVisibleIndex && maxVisibleRatio > 0.5) {
-                    // 暂停其他正在播放的视频
-                    if (currentPlayingIndex !== -1 && currentPlayingIndex !== index) {
-                        const previousPlayer = listPlayers[currentPlayingIndex];
-                        if (previousPlayer) {
-                            previousPlayer.pause();
-                            log(`视频${currentPlayingIndex + 1}变为不可见，已暂停`);
-                        }
-                    }
-
-                    // 播放新视频
-                    player.play(player._videoUrl);
-                    currentPlayingIndex = index;
-                    log(`视频${index + 1}变为可见，开始播放`, 'success');
-                }
-                // 从可见变为不可见 - 暂停
-                else if (wasVisible && !isVisible && currentPlayingIndex === index) {
-                    player.pause();
-                    currentPlayingIndex = -1;
-                    log(`视频${index + 1}变为不可见，已暂停`);
-                }
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
             });
 
-            // 更新可见性状态
-            lastVisibilityStates = currentVisibilityStates;
-        }
+            document.getElementById('tab-' + tabName).classList.add('active');
+            event.target.classList.add('active');
 
-        function pauseAllList() {
-            listPlayers.forEach(player => {
-                if (player) player.pause();
-            });
-            log('暂停所有列表视频');
-        }
-
-        function destroyAllList() {
-            listPlayers.forEach((player, index) => {
-                if (player) {
-                    player.destroy();
-                    log(`销毁列表视频${index + 1}`, 'error');
-                }
-            });
-            listPlayers = [];
-        }
-
-        // ===== 隔帧传输控制函数 =====
-
-        let frameSkipEnabled = true; // 本地状态
-        let useRGB888 = true; // 颜色格式状态
-
-        function toggleFrameSkip() {
-            if (!window.NativeVideoPlayer) {
-                log('Native bridge 不可用', 'error');
-                return;
-            }
-
-            frameSkipEnabled = !frameSkipEnabled;
-            window.NativeVideoPlayer.setFrameSkipEnabled(frameSkipEnabled);
-
-            const btn = document.getElementById('btnFrameSkip');
-            btn.textContent = `隔帧传输: ${frameSkipEnabled ? '开启' : '关闭'}`;
-
-            if (frameSkipEnabled) {
-                btn.classList.add('selected');
-                btn.classList.remove('danger');
-            } else {
-                btn.classList.remove('selected');
-                btn.classList.add('danger');
-            }
-
-            log(`隔帧传输已${frameSkipEnabled ? '开启' : '关闭'}`, 'success');
-        }
-
-        function setFrameSkipInterval(interval) {
-            if (!window.NativeVideoPlayer) {
-                log('Native bridge 不可用', 'error');
-                return;
-            }
-
-            window.NativeVideoPlayer.setFrameSkipInterval(interval);
-
-            // 移除所有帧率按钮的选中状态
-            document.querySelectorAll('#tab-canvas .control-group:nth-child(2) .controls button').forEach(btn => {
-                btn.classList.remove('selected');
-            });
-
-            // 根据间隔添加选中状态
-            if (interval === 1) {
-                event.target.classList.add('selected');
-            } else if (interval === 2) {
-                document.getElementById('fps30')?.classList.add('selected');
-            } else if (interval === 3) {
-                event.target.classList.add('selected');
-            }
-
-            let desc = '';
-            switch(interval) {
-                case 1: desc = '不跳帧 (60fps目标)'; break;
-                case 2: desc = '每2帧传1帧 (30fps)'; break;
-                case 3: desc = '每3帧传1帧 (20fps)'; break;
-                default: desc = `每${interval}帧传1帧`;
-            }
-
-            log(`设置间隔: ${desc}`, 'success');
-        }
-
-        function showFrameSkipStatus() {
-            if (!window.NativeVideoPlayer) {
-                log('Native bridge 不可用', 'error');
-                return;
-            }
-
-            try {
-                const configJson = window.NativeVideoPlayer.getFrameSkipConfig();
-                const config = JSON.parse(configJson);
-
-                log(`当前配置 - 隔帧: ${config.enabled ? '开启' : '关闭'}, 间隔: 每${config.interval}帧传1帧, 格式: ${config.useRGB888 ? 'RGB888' : 'RGBA'}`, 'info');
-            } catch (e) {
-                log('获取配置失败: ' + e.message, 'error');
-            }
-        }
-
-        // ===== 颜色格式控制函数 =====
-
-        function toggleColorFormat() {
-            if (!window.NativeVideoPlayer) {
-                log('Native bridge 不可用', 'error');
-                return;
-            }
-
-            useRGB888 = !useRGB888;
-            window.NativeVideoPlayer.setColorFormat(useRGB888);
-
-            const btn = document.getElementById('btnColorFormat');
-            btn.textContent = `当前: ${useRGB888 ? 'RGB888' : 'RGBA'}`;
-
-            // 更新下方按钮的选中状态
-            if (useRGB888) {
-                document.getElementById('rgb888')?.classList.add('selected');
-                document.querySelectorAll('#tab-canvas .control-group:nth-child(3) .controls:last-child button:first-child').forEach(b => b.classList.remove('selected'));
-            } else {
-                document.getElementById('rgb888')?.classList.remove('selected');
-                document.querySelectorAll('#tab-canvas .control-group:nth-child(3) .controls:last-child button:first-child').forEach(b => b.classList.add('selected'));
-            }
-
-            log(`颜色格式已切换为 ${useRGB888 ? 'RGB888 (JS需转换, -25%数据)' : 'RGBA (无需转换, +33%数据)'}`, 'success');
-        }
-
-        function setColorFormatRGBA() {
-            if (!window.NativeVideoPlayer) {
-                log('Native bridge 不可用', 'error');
-                return;
-            }
-
-            useRGB888 = false;
-            window.NativeVideoPlayer.setColorFormat(false);
-
-            const btn = document.getElementById('btnColorFormat');
-            btn.textContent = '当前: RGBA';
-
-            // 更新选中状态
-            document.getElementById('rgb888')?.classList.remove('selected');
-            event.target.classList.add('selected');
-
-            log('设置为RGBA格式 (无需JS转换, 但数据量+33%)', 'success');
-        }
-
-        function setColorFormatRGB888() {
-            if (!window.NativeVideoPlayer) {
-                log('Native bridge 不可用', 'error');
-                return;
-            }
-
-            useRGB888 = true;
-            window.NativeVideoPlayer.setColorFormat(true);
-
-            const btn = document.getElementById('btnColorFormat');
-            btn.textContent = '当前: RGB888';
-
-            // 更新选中状态
-            document.querySelectorAll('#tab-canvas .control-group:nth-child(3) .controls:last-child button').forEach(b => b.classList.remove('selected'));
-            event.target.classList.add('selected');
-
-            log('设置为RGB888格式 (需JS转换RGB→RGBA, 但数据量-25%)', 'success');
+            log('切换到 ' + (tabName === 'canvas' ? 'Canvas模式' : 'Layer模式'), 'info');
         }
 
         // 工具函数
@@ -868,47 +952,68 @@
             return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
         }
 
-        // 日志工具函数
-        function clearLog() {
-            const logEl = document.getElementById('log');
-            if (logEl) {
-                logEl.innerHTML = '';
-                log('日志已清空', 'info');
+        // 查看当前配置
+        function showCurrentConfig() {
+            if (!window.NativeVideoPlayer) {
+                log('Native bridge 不可用', 'error');
+                return;
+            }
+
+            try {
+                const configJson = window.NativeVideoPlayer.getFrameSkipConfig();
+                const config = JSON.parse(configJson);
+
+                // 获取当前帧率选择
+                const frameRateValue = document.getElementById('frameRateSelect').value;
+                let frameRateText = '';
+                if (frameRateValue === 'disabled') {
+                    frameRateText = '关闭隔帧';
+                } else {
+                    frameRateText = frameRateValue + ' FPS';
+                }
+
+                // 获取当前分辨率选择
+                const resolution = document.getElementById('resolutionSelect').value;
+
+                log('━━━━━━ 当前配置 ━━━━━━', 'info');
+                log(`视频分辨率: ${resolution}p`, 'info');
+                log(`帧率控制: ${frameRateText}`, 'info');
+                log(`隔帧传输: ${config.enabled ? '开启' : '关闭'}`, 'info');
+                log(`传输间隔: 每${config.interval}帧传1帧`, 'info');
+                log(`颜色格式: ${config.useRGB888 ? 'RGB888 (数据量-25%)' : 'RGBA (无需转换)'}`, 'info');
+                log(`自动播放: ${autoPlayEnabled ? '开启' : '关闭'}`, 'info');
+                log(`当前播放: ${currentPlayingIndex === -1 ? '无' : '视频' + (currentPlayingIndex + 1)}`, 'info');
+                log('━━━━━━━━━━━━━━━━━━━━', 'info');
+            } catch (e) {
+                log('获取配置失败: ' + e.message, 'error');
             }
         }
 
-        function scrollToTop() {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
-        // Tab切换函数
-        function switchTab(tabName) {
-            // 隐藏所有Tab内容
-            document.querySelectorAll('.tab-content').forEach(content => {
-                content.classList.remove('active');
-            });
-
-            // 移除所有Tab按钮的active状态
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.classList.remove('active');
-            });
-
-            // 显示选中的Tab内容
-            document.getElementById('tab-' + tabName).classList.add('active');
-
-            // 激活对应的Tab按钮
-            event.target.classList.add('active');
-
-            log('切换到 ' + (tabName === 'canvas' ? 'Canvas模式' : 'Layer模式'), 'info');
-        }
-
-        // 页面加载完成后的初始化
+        // 页面加载完成
         window.addEventListener('load', () => {
             log('页面加载完成', 'success');
-            log('可以开始测试播放器功能');
+            log('Canvas模式：关闭隔帧可获得最高FPS（~25）');
+
+            // 应用默认设置
+            if (window.NativeVideoPlayer) {
+                window.NativeVideoPlayer.setFrameSkipEnabled(false);
+                window.NativeVideoPlayer.setColorFormat(true); // RGB888
+            }
+
+            // 如果自动播放开关打开，初始化播放器并检查可见性
+            setTimeout(() => {
+                if (autoPlayEnabled) {
+                    initListPlayers();
+                    // 延迟一点再检查可见性，确保布局完成
+                    setTimeout(() => {
+                        checkVisibilityAndPlayPause();
+                        log('自动播放已启用，检测可见视频', 'info');
+                    }, 500);
+                }
+            }, 1000);
         });
 
-        // 监听页面卸载
+        // 页面卸载清理
         window.addEventListener('beforeunload', () => {
             if (detailPlayer) {
                 detailPlayer.destroy();

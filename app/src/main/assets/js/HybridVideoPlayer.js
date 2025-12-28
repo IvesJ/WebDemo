@@ -14,6 +14,7 @@ class HybridVideoPlayer {
         this.loop = options.loop || false;
         this.muted = options.muted || false;
         this.volume = options.volume !== undefined ? options.volume : 1.0;
+        this.canvasResolution = options.canvasResolution || 320;
 
         this.state = 'idle';
         this.currentTime = 0;
@@ -82,6 +83,7 @@ class HybridVideoPlayer {
             enableDolby: this.enableDolby,
             maxFrameRate: this.maxFrameRate,
             enableSharedMemory: true,
+            canvasResolution: this.canvasResolution,
             // 初始位置也是CSS像素，Native层会转换
             width: Math.round(rect.width),
             height: Math.round(rect.height),

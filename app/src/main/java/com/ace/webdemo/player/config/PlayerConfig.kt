@@ -76,7 +76,14 @@ data class PlayerConfig(
     /**
      * 初始音量 (0.0 - 1.0)
      */
-    val volume: Float = 1.0f
+    val volume: Float = 1.0f,
+
+    /**
+     * Canvas模式视频分辨率（最大尺寸）
+     * 视频帧会缩放到这个分辨率传输到H5
+     * 默认320px，可选：240, 320, 480, 640
+     */
+    val canvasResolution: Int = 320
 ) {
     companion object {
         /**
@@ -97,7 +104,8 @@ data class PlayerConfig(
                 autoPlay = json.optBoolean("autoPlay", false),
                 loop = json.optBoolean("loop", false),
                 muted = json.optBoolean("muted", false),
-                volume = json.optDouble("volume", 1.0).toFloat()
+                volume = json.optDouble("volume", 1.0).toFloat(),
+                canvasResolution = json.optInt("canvasResolution", 320)
             )
         }
 
@@ -140,6 +148,7 @@ data class PlayerConfig(
             put("loop", loop)
             put("muted", muted)
             put("volume", volume)
+            put("canvasResolution", canvasResolution)
         }
     }
 }
